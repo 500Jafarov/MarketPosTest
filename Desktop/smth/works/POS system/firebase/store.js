@@ -111,6 +111,14 @@ async function fbDeleteSale(id) {
   return fbDB.collection('sales').doc(id).delete();
 }
 
+async function fbUpdateSaleCustomer(id, customerName, customerPhone) {
+  return fbDB.collection('sales').doc(id).update({
+    customerName: customerName || '',
+    customerPhone: customerPhone || '',
+    updatedAt: TS(),
+  });
+}
+
 // ── İadeler ──────────────────────────────────────────────────────
 
 function fbStreamReturns(onData, onError) {

@@ -1526,6 +1526,10 @@ function AppProvider({ children }) {
   // Sales management
   const deleteSale = useCallback((id) => { setSales(prev => prev.filter(x => x.id !== id)); }, []);
   const clearSalesByFilter = useCallback((filterFn) => { setSales(prev => prev.filter(s => !filterFn(s))); }, []);
+  const updateSaleCustomer = useCallback((id, customerName, customerPhone) => {
+    setSales(prev => prev.map(s => s.id === id ? { ...s, customerName, customerPhone } : s));
+    fbUpdateSaleCustomer(id, customerName, customerPhone).catch(err => console.error('[FB] updateSaleCustomer:', err));
+  }, []);
   const deleteTransfer = useCallback((id) => { setTransfers(prev => prev.filter(x => x.id !== id)); }, []);
   const clearAllTransfers = useCallback(() => { setTransfers([]); }, []);
 
@@ -1628,7 +1632,7 @@ function AppProvider({ children }) {
     users, categories, products, sales, customers, settings, transfers, returns, currentUser, authReady,
     login, logout, saveProduct, deleteProduct, completeSale,
     saveCategory, deleteCategory, saveUser, deleteUser, saveSettings,
-    deleteSale, clearSalesByFilter,
+    deleteSale, clearSalesByFilter, updateSaleCustomer,
     deleteTransfer, clearAllTransfers,
     transferToShop, updateWarehouseStock,
     processReturn, deleteReturn,
@@ -3475,7 +3479,7 @@ function InventoryPage() {
 // SALES HISTORY
 // ============================================================
 function SalesPage() {
-  const { sales, settings, addToast, deleteSale, clearSalesByFilter, processReturn, returns, currentUser } = useApp();
+  const { sales, settings, addToast, deleteSale, clearSalesByFilter, processReturn, returns, currentUser, updateSaleCustomer } = useApp();
   const [search, setSearch] = useState('');
   const [filterType, setFilterType] = useState('');
   const [filterDate, setFilterDate] = useState('');
@@ -3485,6 +3489,18 @@ function SalesPage() {
   const cur = settings.currency || '₼';
   const [page, setPage] = useState(1);
   const PER_PAGE = 20;
+  const [editCustomerSale, setEditCustomerSale] = useState(null);
+  const [editName, setEditName] = useState('');
+  const [editPhone, setEditPhone] = useState('');
+
+  const openEditCustomer = (s) => { setEditCustomerSale(s); setEditName(s.customerName || ''); setEditPhone(s.customerPhone || ''); };
+  const saveEditCustomer = () => {
+    if (!editCustomerSale) return;
+    updateSaleCustomer(editCustomerSale.id, editName.trim(), editPhone.trim());
+    if (selectedSale?.id === editCustomerSale.id) setSelectedSale(prev => ({ ...prev, customerName: editName.trim(), customerPhone: editPhone.trim() }));
+    setEditCustomerSale(null);
+    addToast('Müştəri məlumatı yeniləndi.', 'success');
+  };
 
   const filtered = sales.filter(s => {
     const q = search.toLowerCase();
@@ -3537,8 +3553,22 @@ function SalesPage() {
                   React.createElement('td', { className: 'fw-mono', style: { fontSize: 12 } }, s.receiptNo),
                   React.createElement('td', { style: { fontSize: 12, color: 'var(--text3)' } }, fmt.datetime(s.createdAt)),
                   React.createElement('td', null, React.createElement('span', { className: `badge ${s.type === 'retail' ? 'badge-yellow' : 'badge-blue'}` }, s.type === 'retail' ? 'Pərakəndə' : 'Topdansatış')),
-                  React.createElement('td', { style: { fontSize: 13 } }, s.customerName || React.createElement('span', { style: { color: 'var(--text3)' } }, '—')),
-                  React.createElement('td', { style: { fontSize: 13 } }, s.cashierName),
+                  React.createElement('td', { style: { fontSize: 13 } },
+                    React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 4 } },
+                      React.createElement('span', null,
+                        s.customerName
+                          ? React.createElement('span', null, s.customerName, s.customerPhone && React.createElement('span', { style: { display: 'block', fontSize: 11, color: 'var(--text3)', fontFamily: 'var(--mono)' } }, s.customerPhone))
+                          : React.createElement('span', { style: { color: 'var(--text3)' } }, '—')
+                      ),
+                      React.createElement('button', {
+                        className: 'btn btn-ghost btn-icon',
+                        title: 'Müştəri məlumatını redaktə et',
+                        style: { width: 22, height: 22, fontSize: 11, flexShrink: 0, opacity: 0.6 },
+                        onClick: e => { e.stopPropagation(); openEditCustomer(s); }
+                      }, '✏️')
+                    )
+                  ),
+                  React.createElement('td', { className: 'hide-phone', style: { fontSize: 13 } }, s.cashierName),
                   React.createElement('td', { className: 'fw-mono fw-bold', style: { color: 'var(--accent)' } }, fmt.currency(s.total, cur)),
                   React.createElement('td', null,
                     React.createElement('div', { style: { display: 'flex', gap: 4 } },
@@ -3564,7 +3594,37 @@ function SalesPage() {
     ),
     selectedSale && React.createElement(ReceiptModal, { sale: selectedSale, onClose: () => setSelectedSale(null), settings }),
     returnSale && React.createElement(ReturnModal, { sale: returnSale, returns, onReturn: processReturn, currentUser, settings, onClose: () => setReturnSale(null), addToast }),
-    showClearModal && React.createElement(ClearSalesModal, { sales, onClear: clearSalesByFilter, onClose: () => setShowClearModal(false), addToast })
+    showClearModal && React.createElement(ClearSalesModal, { sales, onClear: clearSalesByFilter, onClose: () => setShowClearModal(false), addToast }),
+    editCustomerSale && React.createElement('div', { className: 'modal-overlay show', onClick: () => setEditCustomerSale(null) },
+      React.createElement('div', { className: 'modal', style: { maxWidth: 360 }, onClick: e => e.stopPropagation() },
+        React.createElement('div', { className: 'modal-header' },
+          React.createElement('span', { className: 'modal-title' }, '✏️ Müştəri məlumatı'),
+          React.createElement('button', { className: 'btn btn-ghost btn-icon', onClick: () => setEditCustomerSale(null) }, '✕')
+        ),
+        React.createElement('div', { className: 'modal-body' },
+          React.createElement('div', { style: { fontSize: 12, color: 'var(--text3)', marginBottom: 12 } }, 'Qəbz №: ' + editCustomerSale.receiptNo),
+          React.createElement('label', { className: 'form-label' }, 'Müştəri adı'),
+          React.createElement('input', {
+            className: 'form-control', style: { marginBottom: 10 },
+            value: editName, onChange: e => setEditName(e.target.value),
+            placeholder: 'Müştəri adı daxil edin',
+            autoFocus: true,
+            onKeyDown: e => e.key === 'Enter' && saveEditCustomer(),
+          }),
+          React.createElement('label', { className: 'form-label' }, 'Telefon'),
+          React.createElement('input', {
+            className: 'form-control',
+            value: editPhone, onChange: e => setEditPhone(e.target.value),
+            placeholder: '+994 xx xxx xx xx',
+            onKeyDown: e => e.key === 'Enter' && saveEditCustomer(),
+          })
+        ),
+        React.createElement('div', { className: 'modal-footer' },
+          React.createElement('button', { className: 'btn btn-secondary', onClick: () => setEditCustomerSale(null) }, 'Ləğv et'),
+          React.createElement('button', { className: 'btn btn-primary', onClick: saveEditCustomer }, '✓ Yadda saxla')
+        )
+      )
+    )
   );
 }
 
