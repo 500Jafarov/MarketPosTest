@@ -575,17 +575,16 @@ textarea.form-control { resize: vertical; min-height: 80px; }
 .cart-total-row { display: flex; justify-content: space-between; font-size: 18px; font-weight: 800; color: var(--text); font-family: var(--sans); padding-top: 8px; border-top: 1px solid var(--border); margin-top: 4px; }
 .cart-total-row span:last-child { color: var(--accent); }
 
-/* App footer */
-.app-footer {
+/* Sidebar footer */
+.sidebar-footer {
   text-align: center;
-  padding: 18px 24px 22px;
-  font-size: 12px;
+  padding: 10px 14px 14px;
+  font-size: 11px;
   color: var(--text3);
   letter-spacing: 0.02em;
   border-top: 1px solid var(--border);
-  margin-top: auto;
 }
-.app-footer strong { color: var(--text2); font-weight: 600; }
+.sidebar-footer strong { color: var(--text2); font-weight: 600; }
 
 /* Login page */
 .login-page {
@@ -1825,6 +1824,9 @@ function Sidebar({ activePage, setPage, setShowEOD, sidebarOpen }) {
         React.createElement('div', { className: 'user-role' }, currentUser?.role === 'admin' ? 'Admin' : 'Kassir')
       ),
       React.createElement('button', { className: 'logout-btn', onClick: logout, title: 'Çıxış' }, '⏻')
+    ),
+    React.createElement('div', { className: 'sidebar-footer' },
+      '© 2026 ', React.createElement('strong', null, '500Jafarov'), ' & ', React.createElement('strong', null, 'TSM')
     )
   );
 }
@@ -5264,13 +5266,7 @@ function AppShell() {
 
     React.createElement(Sidebar, { activePage: page, setPage: navigate, setShowEOD, sidebarOpen }),
     React.createElement('div', { className: 'main-content' },
-      pages[page] || pages.dashboard,
-      React.createElement('footer', { className: 'app-footer' },
-        '© 2026 Created by ',
-        React.createElement('strong', null, '500Jafarov'),
-        ' & ',
-        React.createElement('strong', null, 'TSM')
-      )
+      pages[page] || pages.dashboard
     ),
     React.createElement(ToastContainer),
     showEOD && React.createElement(EndOfDayModal, { onClose: () => setShowEOD(false) })
