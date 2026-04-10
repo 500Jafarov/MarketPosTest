@@ -1375,7 +1375,7 @@ function AppProvider({ children }) {
   });
   const [sales, setSales] = useState(() => Storage.get('sales', generateSeedSales()));
   const [customers, setCustomers] = useState(() => Storage.get('customers', SEED_CUSTOMERS));
-  const [settings, setSettings] = useState(() => Storage.get('settings', SEED_SETTINGS));
+  const [settings, setSettings] = useState(SEED_SETTINGS);
   const [transfers, setTransfers] = useState(() => Storage.get('transfers', []));
   const [returns, setReturns] = useState(() => Storage.get('returns', []));
   const [currentUser, setCurrentUser] = useState(null);
@@ -1403,9 +1403,10 @@ function AppProvider({ children }) {
           role:     storeData?.role || 'admin',
           active:   true,
         });
-        if (storeData?.settings) setSettings(s => ({ ...s, ...storeData.settings }));
+        setSettings(storeData?.settings ? { ...SEED_SETTINGS, ...storeData.settings } : SEED_SETTINGS);
       } else {
         setCurrentUser(null);
+        setSettings(SEED_SETTINGS);
       }
       setAuthReady(true);
     });
@@ -1532,7 +1533,10 @@ function AppProvider({ children }) {
   const deleteUser = useCallback((id) => { setUsers(prev => prev.filter(x => x.id !== id)); }, []);
 
   // Settings
-  const saveSettings = useCallback((s) => { setSettings(s); }, []);
+  const saveSettings = useCallback((s) => {
+    setSettings(s);
+    fbSaveStoreData({ settings: s, ownerName: s.storeName || '' }).catch(err => console.error('[FB] saveSettings:', err));
+  }, []);
 
   // Sales management
   const deleteSale = useCallback((id) => { setSales(prev => prev.filter(x => x.id !== id)); }, []);
@@ -4856,7 +4860,6 @@ function SettingsPage() {
       // 4. Kategoriler & müşteriler → localStorage
       if (d.categories) localStorage.setItem('pos_categories', JSON.stringify(d.categories));
       if (d.customers)  localStorage.setItem('pos_customers',  JSON.stringify(d.customers));
-      if (d.settings)   localStorage.setItem('pos_settings',   JSON.stringify(d.settings));
 
       addToast('Məlumatlar uğurla yeniləndi!', 'success');
       setRestoreData(null);
