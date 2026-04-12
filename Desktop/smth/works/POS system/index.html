@@ -1651,7 +1651,10 @@ function AppProvider({ children }) {
     return { ok: true, ret };
   }, [sales, returns, products]);
 
-  const deleteReturn = useCallback((id) => { setReturns(prev => prev.filter(x => x.id !== id)); }, []);
+  const deleteReturn = useCallback((id) => {
+    setReturns(prev => prev.filter(x => x.id !== id));
+    fbDeleteReturn(id).catch(err => console.error('[FB] deleteReturn:', err));
+  }, []);
 
   const value = {
     users, categories, products, sales, customers, settings, transfers, returns, currentUser, authReady,
@@ -4394,6 +4397,8 @@ function ReturnsPage() {
 function ReportsPage() {
   const { sales, products, settings, transfers, returns } = useApp();
   const [activeTab, setActiveTab] = useState('overview');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
   const cur = settings.currency || '₼';
 
   const now = new Date();
@@ -4441,9 +4446,9 @@ function ReportsPage() {
     ),
     React.createElement('div', { className: 'page-body' },
       React.createElement('div', { className: 'tabs' },
-        ['overview', 'products', 'monthly', 'transfers'].map(t =>
+        ['overview', 'products', 'monthly', 'transfers', 'daterange'].map(t =>
           React.createElement('div', { key: t, className: `tab-item${activeTab === t ? ' active' : ''}`, onClick: () => setActiveTab(t) },
-            { overview: '📊 Genel Bakış', products: '📦 Ürün Analizi', monthly: '📅 Aylık Trend', transfers: '🔄 Transferler' }[t]
+            { overview: '📊 Genel Bakış', products: '📦 Ürün Analizi', monthly: '📅 Aylık Trend', transfers: '🔄 Transferler', daterange: '🗓️ Tarix Aralığı' }[t]
           )
         )
       ),
@@ -4615,7 +4620,95 @@ function ReportsPage() {
               )
           );
         })()
-      )
+      ),
+
+      activeTab === 'daterange' && (() => {
+        // Tarix aralığı filtri
+        const from = dateFrom ? new Date(dateFrom) : null;
+        const to   = dateTo   ? new Date(dateTo + 'T23:59:59') : null;
+        const rangeSales = sales.filter(s => {
+          const d = toDate(s.createdAt);
+          return (!from || d >= from) && (!to || d <= to);
+        });
+
+        // Günlük qruplaşdırma
+        const dayMap = {};
+        rangeSales.forEach(s => {
+          const key = fmt.date(s.createdAt);
+          if (!dayMap[key]) dayMap[key] = { date: key, sales: 0, profit: 0, count: 0, dateObj: toDate(s.createdAt) };
+          dayMap[key].sales += s.total;
+          dayMap[key].count++;
+          // Qazanc: hər item üçün (satış qiyməti - alış qiyməti) × miqdar
+          s.items.forEach(item => {
+            const prod = products.find(p => p.id === item.productId);
+            const purchase = prod?.purchasePrice || 0;
+            dayMap[key].profit += (item.price - purchase) * item.qty;
+          });
+        });
+
+        const rows = Object.values(dayMap).sort((a, b) => b.dateObj - a.dateObj);
+        const totalSales  = rows.reduce((s, r) => s + r.sales, 0);
+        const totalProfit = rows.reduce((s, r) => s + r.profit, 0);
+        const totalCount  = rows.reduce((s, r) => s + r.count, 0);
+
+        return React.createElement('div', null,
+          // Tarix seçici
+          React.createElement('div', { className: 'card', style: { padding: '14px 16px', marginBottom: 16 } },
+            React.createElement('div', { style: { display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' } },
+              React.createElement('label', { style: { fontSize: 13, color: 'var(--text3)', whiteSpace: 'nowrap' } }, 'Başlanğıc tarixi:'),
+              React.createElement('input', { className: 'form-control', type: 'date', style: { width: 160 }, value: dateFrom, onChange: e => setDateFrom(e.target.value) }),
+              React.createElement('label', { style: { fontSize: 13, color: 'var(--text3)', whiteSpace: 'nowrap' } }, 'Bitmə tarixi:'),
+              React.createElement('input', { className: 'form-control', type: 'date', style: { width: 160 }, value: dateTo, onChange: e => setDateTo(e.target.value) }),
+              React.createElement('button', { className: 'btn btn-ghost btn-sm', onClick: () => { setDateFrom(''); setDateTo(''); } }, '✕ Sıfırla')
+            )
+          ),
+
+          // Xülasə kartları
+          rangeSales.length > 0 && React.createElement('div', { className: 'stats-grid', style: { marginBottom: 16 } },
+            statCard('Ümumi Satış', fmt.currency(totalSales, cur), totalCount + ' əməliyyat', '💰', ''),
+            statCard('Ümumi Qazanc', fmt.currency(totalProfit, cur), 'Satış − Alış məbləği', '📈', 'green'),
+            statCard('Ortalama Gün', fmt.currency(rows.length ? totalSales / rows.length : 0, cur), rows.length + ' gün', '📅', 'blue')
+          ),
+
+          // Cədvəl
+          rows.length === 0
+            ? React.createElement('div', { className: 'empty-state' },
+                React.createElement('div', { className: 'icon' }, '🗓️'),
+                React.createElement('p', null, dateFrom || dateTo ? 'Bu aralıqda satış tapılmadı' : 'Tarix aralığı seçin')
+              )
+            : React.createElement('div', { className: 'card' },
+                React.createElement('div', { className: 'table-wrap' },
+                  React.createElement('table', null,
+                    React.createElement('thead', null,
+                      React.createElement('tr', null,
+                        React.createElement('th', { style: { width: 50 } }, 'S/S'),
+                        React.createElement('th', null, 'Tarix'),
+                        React.createElement('th', null, 'Əməliyyat'),
+                        React.createElement('th', null, 'Ümumi Satış'),
+                        React.createElement('th', null, 'Ümumi Qazanc')
+                      )
+                    ),
+                    React.createElement('tbody', null,
+                      rows.map((r, i) =>
+                        React.createElement('tr', { key: r.date },
+                          React.createElement('td', { className: 'fw-mono', style: { color: 'var(--text3)', fontSize: 12 } }, i + 1),
+                          React.createElement('td', { style: { fontWeight: 600 } }, r.date),
+                          React.createElement('td', { style: { color: 'var(--text3)', fontSize: 13 } }, r.count + ' əməliyyat'),
+                          React.createElement('td', { className: 'fw-mono fw-bold', style: { color: 'var(--accent)' } }, fmt.currency(r.sales, cur)),
+                          React.createElement('td', { className: 'fw-mono fw-bold', style: { color: r.profit >= 0 ? 'var(--green)' : 'var(--red)' } }, fmt.currency(r.profit, cur))
+                        )
+                      ),
+                      React.createElement('tr', { style: { borderTop: '2px solid var(--border)', background: 'var(--bg3)' } },
+                        React.createElement('td', { colSpan: 3, style: { fontWeight: 700, fontSize: 13 } }, 'CƏMİ'),
+                        React.createElement('td', { className: 'fw-mono fw-bold', style: { color: 'var(--accent)', fontSize: 15 } }, fmt.currency(totalSales, cur)),
+                        React.createElement('td', { className: 'fw-mono fw-bold', style: { color: totalProfit >= 0 ? 'var(--green)' : 'var(--red)', fontSize: 15 } }, fmt.currency(totalProfit, cur))
+                      )
+                    )
+                  )
+                )
+              )
+        );
+      })()
     )
   );
 }

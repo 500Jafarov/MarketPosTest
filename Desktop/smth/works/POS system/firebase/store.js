@@ -156,3 +156,7 @@ async function fbSaveReturn(ret) {
   await batch.commit();
   return retRef.id;
 }
+
+async function fbDeleteReturn(id) {
+  return fbDB.collection('returns').doc(id).delete();
+}
