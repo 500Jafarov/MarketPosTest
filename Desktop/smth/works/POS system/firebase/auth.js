@@ -24,5 +24,5 @@ function fbLogout() {
 }
 
 function fbOnAuthChange(callback) {
-  return firebase.auth().onAuthStateChanged(callback);
+  return fbAuth.onAuthStateChanged(callback);
 }
