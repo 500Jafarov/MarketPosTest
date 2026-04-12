@@ -1552,7 +1552,7 @@ function AppProvider({ children }) {
   }, []);
   const updateSaleCustomer = useCallback((id, receiptNo, customerName, customerPhone) => {
     setSales(prev => prev.map(s => s.id === id ? { ...s, customerName, customerPhone } : s));
-    fbUpdateSaleCustomer(id, receiptNo, customerName, customerPhone)
+    fbUpdateSaleCustomer(receiptNo, customerName, customerPhone)
       .catch(err => { console.error('[FB] updateSaleCustomer:', err); addToast('Xəta: müştəri məlumatı saxlanmadı.', 'error'); });
   }, []);
   const deleteTransfer = useCallback((id) => { setTransfers(prev => prev.filter(x => x.id !== id)); }, []);
