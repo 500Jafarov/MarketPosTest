@@ -1677,15 +1677,18 @@ function AppProvider({ children }) {
   }, [sales, returns, products, addToast]);
 
   const deleteReturn = useCallback((id) => {
+    const prevReturns = [...returns];
     fbDeleteReturn(id)
       .then(() => {
         setReturns(prev => prev.filter(x => x.id !== id));
+        addToast('İade silindi.', 'success');
       })
       .catch(err => {
         console.error('[FB] deleteReturn:', err);
-        addToast('İade silinə bilmədi. Yenidən cəhd edin.', 'error');
+        addToast('İade silinə bilmədi: ' + (err.message || 'Xəta'), 'error');
+        setReturns(prevReturns);
       });
-  }, [addToast]);
+  }, [addToast, returns]);
 
   const value = {
     users, categories, products, sales, customers, settings, transfers, returns, currentUser, authReady,

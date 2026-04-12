@@ -154,7 +154,14 @@ async function fbSaveReturn(ret) {
 }
 
 async function fbDeleteReturn(id) {
-  const docRef = doc(fbDB, 'returns', id);
-  await deleteDoc(docRef);
-  console.log('Veritabanından başarıyla silindi:', id);
+  try {
+    const docRef = doc(fbDB, 'returns', id);
+    console.log('Siliniyor:', id);
+    await deleteDoc(docRef);
+    console.log('Veritabanından başarıyla silindi:', id);
+    return true;
+  } catch (error) {
+    console.error('Silme hatası:', error.code, error.message);
+    throw error;
+  }
 }
