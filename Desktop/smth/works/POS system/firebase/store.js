@@ -141,13 +141,18 @@ async function fbSaveReturn(ret) {
 
 async function fbDeleteReturn(id) {
   try {
+    console.log('[FB] Silme başladı, id:', id);
+    console.log('[FB] fbDB:', fbDB);
+    console.log('[FB] fbDB.collection:', fbDB.collection);
+    
     const docRef = fbDB.doc('returns/' + id);
-    console.log('Siliniyor:', id);
+    console.log('[FB] docRef:', docRef.path);
+    
     await docRef.delete();
-    console.log('Veritabanından başarıyla silindi:', id);
+    console.log('[FB] Silme başarılı, id:', id);
     return true;
   } catch (error) {
-    console.error('Silme hatası:', error.code, error.message);
+    console.error('[FB] Silme HATASI:', error.code, error.message, error);
     throw error;
   }
 }
