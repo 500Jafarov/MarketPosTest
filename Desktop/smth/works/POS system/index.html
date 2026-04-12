@@ -1647,10 +1647,16 @@ function AppProvider({ children }) {
       cashierId: user?.id || '',
       createdAt: new Date().toISOString(),
     };
-    setReturns(prev => [ret, ...prev]);
-    fbSaveReturn(ret).catch(err => console.error('[FB] processReturn:', err));
+    fbSaveReturn(ret)
+      .then(fbId => {
+        setReturns(prev => [{ ...ret, id: fbId }, ...prev]);
+      })
+      .catch(err => {
+        console.error('[FB] processReturn:', err);
+        addToast('İade saxlanıla bilmədi.', 'error');
+      });
     return { ok: true, ret };
-  }, [sales, returns, products]);
+  }, [sales, returns, products, addToast]);
 
   const deleteReturn = useCallback((id) => {
     fbDeleteReturn(id)
