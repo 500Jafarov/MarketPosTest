@@ -3531,6 +3531,22 @@ function SalesPage() {
   const pages = Math.ceil(filtered.length / PER_PAGE);
   const paged = filtered.slice((page - 1) * PER_PAGE, page * PER_PAGE);
 
+  // Xülasə hesablamaları (filtr aktiv olduqda)
+  const hasFilter = filterDate || filterType || search;
+  const totalRevenue = filtered.reduce((s, x) => s + x.total, 0);
+  const retailCount = filtered.filter(s => s.type === 'retail').length;
+  const wholesaleCount = filtered.filter(s => s.type === 'wholesale').length;
+  const retailRevenue = filtered.filter(s => s.type === 'retail').reduce((s, x) => s + x.total, 0);
+  const wholesaleRevenue = filtered.filter(s => s.type === 'wholesale').reduce((s, x) => s + x.total, 0);
+  // Ən çox satılan məhsullar
+  const productTotals = {};
+  filtered.forEach(s => s.items?.forEach(item => {
+    if (!productTotals[item.productName]) productTotals[item.productName] = { qty: 0, revenue: 0 };
+    productTotals[item.productName].qty += item.qty;
+    productTotals[item.productName].revenue += item.lineTotal;
+  }));
+  const topProducts = Object.entries(productTotals).sort((a, b) => b[1].revenue - a[1].revenue).slice(0, 5);
+
   const handleDeleteSingle = (id) => {
     deleteSale(id);
     addToast('Satış kaydı silindi.', 'info');
@@ -3555,8 +3571,44 @@ function SalesPage() {
           React.createElement('option', { value: 'retail' }, '🏷️ Perakende'),
           React.createElement('option', { value: 'wholesale' }, '📦 Toptan')
         ),
-        React.createElement('input', { className: 'form-control', type: 'date', style: { width: 150 }, value: filterDate, onChange: e => { setFilterDate(e.target.value); setPage(1); } })
+        React.createElement('input', { className: 'form-control', type: 'date', style: { width: 150 }, value: filterDate, onChange: e => { setFilterDate(e.target.value); setPage(1); } }),
+        filterDate && React.createElement('button', { className: 'btn btn-ghost btn-sm', onClick: () => { setFilterDate(''); setPage(1); } }, '✕ Tarixi sil')
       ),
+
+      // ── Xülasə paneli (filtr aktiv olduqda) ──────────────────
+      hasFilter && filtered.length > 0 && React.createElement('div', { style: { marginBottom: 16 } },
+        React.createElement('div', { className: 'stats-grid', style: { marginBottom: 12 } },
+          React.createElement('div', { className: 'stat-card green' },
+            React.createElement('div', { className: 'stat-label' }, filterDate ? fmt.date(filterDate) + ' — Ümumi Gəlir' : 'Ümumi Gəlir'),
+            React.createElement('div', { className: 'stat-value' }, fmt.currency(totalRevenue, cur)),
+            React.createElement('div', { className: 'stat-sub' }, filtered.length + ' əməliyyat')
+          ),
+          React.createElement('div', { className: 'stat-card' },
+            React.createElement('div', { className: 'stat-label' }, '🏷️ Pərakəndə'),
+            React.createElement('div', { className: 'stat-value', style: { fontSize: 20 } }, fmt.currency(retailRevenue, cur)),
+            React.createElement('div', { className: 'stat-sub' }, retailCount + ' əməliyyat')
+          ),
+          React.createElement('div', { className: 'stat-card blue' },
+            React.createElement('div', { className: 'stat-label' }, '📦 Topdansatış'),
+            React.createElement('div', { className: 'stat-value', style: { fontSize: 20 } }, fmt.currency(wholesaleRevenue, cur)),
+            React.createElement('div', { className: 'stat-sub' }, wholesaleCount + ' əməliyyat')
+          )
+        ),
+        topProducts.length > 0 && React.createElement('div', { className: 'card', style: { padding: '12px 16px' } },
+          React.createElement('div', { style: { fontSize: 12, fontFamily: 'var(--mono)', color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10 } }, '🏆 Ən çox satılan məhsullar'),
+          React.createElement('div', { style: { display: 'flex', flexDirection: 'column', gap: 6 } },
+            topProducts.map(([name, d], i) =>
+              React.createElement('div', { key: name, style: { display: 'flex', alignItems: 'center', gap: 10 } },
+                React.createElement('span', { style: { fontSize: 11, fontFamily: 'var(--mono)', color: 'var(--text3)', width: 16 } }, '#' + (i + 1)),
+                React.createElement('span', { style: { flex: 1, fontSize: 13, fontWeight: 500 } }, name),
+                React.createElement('span', { style: { fontSize: 12, color: 'var(--text3)', fontFamily: 'var(--mono)' } }, d.qty + ' ədəd'),
+                React.createElement('span', { style: { fontSize: 13, fontWeight: 700, fontFamily: 'var(--mono)', color: 'var(--accent)', minWidth: 80, textAlign: 'right' } }, fmt.currency(d.revenue, cur))
+              )
+            )
+          )
+        )
+      ),
+
       React.createElement('div', { className: 'card' },
         React.createElement('div', { className: 'table-wrap' },
           React.createElement('table', null,
