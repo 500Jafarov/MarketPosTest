@@ -1,7 +1,3 @@
-import { initializeApp } from "firebase/app";
-import { getAuth } from "firebase/auth";
-import { getFirestore, enableMultiTabIndexedDbPersistence } from "firebase/firestore";
-
 const firebaseConfig = {
   apiKey:            "AIzaSyAQxwcfpgXHyECNSVsynzMoanws5jf9TWg",
   authDomain:        "marketpos-43504.firebaseapp.com",
@@ -11,15 +7,12 @@ const firebaseConfig = {
   appId:             "1:115764564665:web:80289a8d2af0e2a7310168",
 };
 
-const app = initializeApp(firebaseConfig);
+const app = firebase.initializeApp(firebaseConfig);
 
-const fbAuth = getAuth(app);
-const fbDB   = getFirestore(app);
+const fbAuth = firebase.auth(app);
+const fbDB   = firebase.firestore(app);
 
-// Offline persistence (PWA)
-enableMultiTabIndexedDbPersistence(fbDB).catch(err => {
+firebase.firestore().enableMultiTabIndexedDbPersistence(fbDB).catch(err => {
   if (err.code === 'failed-precondition') console.warn('[FB] Birden fazla sekme, persistence devre disi.');
   if (err.code === 'unimplemented')       console.warn('[FB] Tarayici persistence desteklemiyor.');
 });
-
-export { fbAuth, fbDB };

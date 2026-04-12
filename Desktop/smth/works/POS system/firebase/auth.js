@@ -23,8 +23,6 @@ function fbLogout() {
   return fbAuth.signOut();
 }
 
-// callback: (firebaseUser | null) => void
-// Dönen fonksiyonu çağırarak listener'ı durdurabilirsiniz (unsubscribe).
 function fbOnAuthChange(callback) {
-  return fbAuth.onAuthStateChanged(callback);
+  return firebase.auth().onAuthStateChanged(callback);
 }
