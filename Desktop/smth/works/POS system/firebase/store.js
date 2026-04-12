@@ -111,12 +111,23 @@ async function fbDeleteSale(id) {
   return fbDB.collection('sales').doc(id).delete();
 }
 
-async function fbUpdateSaleCustomer(id, customerName, customerPhone) {
-  return fbDB.collection('sales').doc(id).set({
-    customerName: customerName || '',
-    customerPhone: customerPhone || '',
-    updatedAt: TS(),
-  }, { merge: true });
+async function fbUpdateSaleCustomer(id, receiptNo, customerName, customerPhone) {
+  const data = { customerName: customerName || '', customerPhone: customerPhone || '', updatedAt: TS() };
+  // Birbaşa ID ilə yoxla
+  const docRef = fbDB.collection('sales').doc(id);
+  const docSnap = await docRef.get();
+  if (docSnap.exists) {
+    return docRef.set(data, { merge: true });
+  }
+  // Tapılmasa receiptNo ilə axtar
+  const snap = await fbDB.collection('sales')
+    .where('ownerId', '==', uid())
+    .where('receiptNo', '==', receiptNo)
+    .get();
+  if (!snap.empty) {
+    return snap.docs[0].ref.set(data, { merge: true });
+  }
+  throw new Error('Sale not found: ' + id + ' / ' + receiptNo);
 }
 
 // ── İadeler ──────────────────────────────────────────────────────
