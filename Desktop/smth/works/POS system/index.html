@@ -3095,7 +3095,7 @@ function LabelPrintModal({ product, settings, onClose }) {
     // 30x22mm at 96dpi ≈ 113x83px; use larger for quality then scale
     const barcodeImg = isValidBarcode ? BarcodeUtil.toBase64(barcode, {
       format: barcode.length === 13 ? 'EAN13' : barcode.length === 8 ? 'EAN8' : 'CODE128',
-      width: 1.8, height: 38, displayValue: true, fontSize: 9, margin: 2
+      width: 2, height: 48, displayValue: true, fontSize: 16, textMargin: 3, margin: 2
     }) : null;
 
     const labels = Array.from({ length: qty }, (_, i) => `
@@ -3121,7 +3121,7 @@ function LabelPrintModal({ product, settings, onClose }) {
       '}' +
       '.store { font-size: 6pt; font-weight: bold; color: #333; margin-bottom: 0.5mm; text-align: center; font-family: Arial, sans-serif; }' +
       '.pname { font-size: 7pt; font-weight: bold; color: #000; margin-bottom: 0.5mm; text-align: center; font-family: Arial, sans-serif; max-width: 28mm; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }' +
-      '.barcode { max-width: 28mm; max-height: 13mm; object-fit: contain; }' +
+      '.barcode { width: 28mm; height: auto; display: block; }' +
       '.no-barcode { font-size: 7pt; color: #999; text-align: center; margin: 2mm 0; }' +
       '.price { font-size: 10pt; font-weight: bold; color: #000; margin-top: 0.5mm; font-family: Arial, sans-serif; }' +
       '</style></head><body>' + labels + '</body></html>';
