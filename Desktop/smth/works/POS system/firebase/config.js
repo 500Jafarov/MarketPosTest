@@ -9,7 +9,7 @@ const firebaseConfig = {
 
 const app = firebase.initializeApp(firebaseConfig);
 
-export const fbAuth = firebase.auth(app);
+const fbAuth = firebase.auth(app);
 const fbDB   = firebase.firestore(app);
 
 firebase.firestore().enableMultiTabIndexedDbPersistence(fbDB).catch(err => {
