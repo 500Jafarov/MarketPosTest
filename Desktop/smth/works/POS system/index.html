@@ -1648,8 +1648,8 @@ function AppProvider({ children }) {
       createdAt: new Date().toISOString(),
     };
     fbSaveReturn(ret)
-      .then(fbId => {
-        setReturns(prev => [{ ...ret, id: fbId }, ...prev]);
+      .then(() => {
+        setReturns(prev => [ret, ...prev]);
       })
       .catch(err => {
         console.error('[FB] processReturn:', err);
@@ -1667,7 +1667,7 @@ function AppProvider({ children }) {
         console.error('[FB] deleteReturn:', err);
         addToast('İade silinə bilmədi. Yenidən cəhd edin.', 'error');
       });
-  }, []);
+  }, [addToast]);
 
   const value = {
     users, categories, products, sales, customers, settings, transfers, returns, currentUser, authReady,

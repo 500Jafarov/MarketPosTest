@@ -139,7 +139,7 @@ async function fbSaveReturn(ret) {
   const ownerId = uid();
   const batch = fbDB.batch();
 
-  const retRef = fbDB.collection('returns').doc();
+  const retRef = fbDB.collection('returns').doc(ret.id);
   batch.set(retRef, { ...ret, ownerId, createdAt: TS() });
 
   // Stoku geri yükle
