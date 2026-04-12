@@ -2,8 +2,11 @@
 // Tüm sorgular mevcut kullanıcının UID'siyle izole edilmiştir.
 // Farklı mağazaların verileri birbirine asla karışmaz.
 
-const TS = () => firebase.firestore.FieldValue.serverTimestamp();
-const INC = (n) => firebase.firestore.FieldValue.increment(n);
+import { doc, deleteDoc, collection, getDoc, getDocs, setDoc, updateDoc, addDoc, query, where, onSnapshot, serverTimestamp, increment, writeBatch } from "firebase/firestore";
+import { fbAuth, fbDB } from "./config.js";
+
+const TS = () => serverTimestamp();
+const INC = (n) => increment(n);
 
 function uid() {
   const u = fbAuth.currentUser;
@@ -14,24 +17,23 @@ function uid() {
 // ── Mağaza ──────────────────────────────────────────────────────
 
 async function fbGetStoreData() {
-  const snap = await fbDB.collection('stores').doc(uid()).get();
-  return snap.exists ? { id: snap.id, ...snap.data() } : null;
+  const snap = await getDoc(doc(fbDB, 'stores', uid()));
+  return snap.exists() ? { id: snap.id, ...snap.data() } : null;
 }
 
 async function fbSaveStoreData(data) {
-  return fbDB.collection('stores').doc(uid()).set(data, { merge: true });
+  return setDoc(doc(fbDB, 'stores', uid()), data, { merge: true });
 }
 
 // ── Ürünler ─────────────────────────────────────────────────────
 
 // Dönen fonksiyonu çağırarak real-time listener'ı durdurabilirsiniz.
 function fbStreamProducts(onData, onError) {
-  return fbDB.collection('products')
-    .where('ownerId', '==', uid())
-    .onSnapshot(
-      snap => onData(snap.docs.map(d => ({ id: d.id, ...d.data() }))),
-      onError || (err => console.error('[FB] streamProducts:', err))
-    );
+  const q = query(collection(fbDB, 'products'), where('ownerId', '==', uid()));
+  return onSnapshot(q,
+    snap => onData(snap.docs.map(d => ({ id: d.id, ...d.data() }))),
+    onError || (err => console.error('[FB] streamProducts:', err))
+  );
 }
 
 async function fbSaveProduct(product) {
@@ -40,16 +42,16 @@ async function fbSaveProduct(product) {
   delete data.id;
 
   if (product.id) {
-    await fbDB.collection('products').doc(product.id).set(data, { merge: true });
+    await setDoc(doc(fbDB, 'products', product.id), data, { merge: true });
     return product.id;
   }
   data.createdAt = TS();
-  const ref = await fbDB.collection('products').add(data);
+  const ref = await addDoc(collection(fbDB, 'products'), data);
   return ref.id;
 }
 
 async function fbDeleteProduct(id) {
-  return fbDB.collection('products').doc(id).delete();
+  return deleteDoc(doc(fbDB, 'products', id));
 }
 
 // ── Satışlar ─────────────────────────────────────────────────────
@@ -57,29 +59,28 @@ async function fbDeleteProduct(id) {
 // orderBy kaldırıldı → composite index gerekmez
 // Sıralama client-side yapılır (createdAt.seconds veya ISO string)
 function fbStreamSales(onData, onError) {
-  return fbDB.collection('sales')
-    .where('ownerId', '==', uid())
-    .onSnapshot(
-      snap => {
-        const docs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-        docs.sort((a, b) => {
-          const ta = a.createdAt?.seconds ?? new Date(a.createdAt || 0).getTime() / 1000;
-          const tb = b.createdAt?.seconds ?? new Date(b.createdAt || 0).getTime() / 1000;
-          return tb - ta; // en yeni önce
-        });
-        onData(docs);
-      },
-      onError || (err => console.error('[FB] streamSales:', err))
-    );
+  const q = query(collection(fbDB, 'sales'), where('ownerId', '==', uid()));
+  return onSnapshot(q,
+    snap => {
+      const docs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      docs.sort((a, b) => {
+        const ta = a.createdAt?.seconds ?? new Date(a.createdAt || 0).getTime() / 1000;
+        const tb = b.createdAt?.seconds ?? new Date(b.createdAt || 0).getTime() / 1000;
+        return tb - ta; // en yeni önce
+      });
+      onData(docs);
+    },
+    onError || (err => console.error('[FB] streamSales:', err))
+  );
 }
 
 // Satış tamamla: satışı kaydet + stok + warehouseStock atomik batch
 async function fbCompleteSale(sale) {
   const ownerId = uid();
-  const batch = fbDB.batch();
+  const batch = writeBatch(fbDB);
 
   // Satış dokümanı — local id çıkar, Firestore id kullan
-  const saleRef = fbDB.collection('sales').doc();
+  const saleRef = doc(collection(fbDB, 'sales'));
   const { id: _localId, items, ...saleData } = sale;
   // items'tan _curWarehouseStock geçici alanını temizle
   const cleanItems = items.map(({ _curWarehouseStock, ...rest }) => rest);
@@ -94,7 +95,7 @@ async function fbCompleteSale(sale) {
   // Her ürün için stock + warehouseStock tek batch'te güncelle
   for (const item of items) {
     if (!item.productId) continue;
-    const prodRef = fbDB.collection('products').doc(item.productId);
+    const prodRef = doc(fbDB, 'products', item.productId);
     const newWarehouseStock = Math.max(0, (item._curWarehouseStock || 0) - item.qty);
     batch.set(prodRef, {
       stock: INC(-item.qty),
@@ -108,43 +109,42 @@ async function fbCompleteSale(sale) {
 }
 
 async function fbDeleteSale(id) {
-  return fbDB.collection('sales').doc(id).delete();
+  return deleteDoc(doc(fbDB, 'sales', id));
 }
 
 async function fbUpdateSaleCustomer(saleId, customerName, customerPhone) {
   const data = { customerName: customerName || '', customerPhone: customerPhone || '', updatedAt: TS() };
-  return fbDB.collection('sales').doc(saleId).set(data, { merge: true });
+  return setDoc(doc(fbDB, 'sales', saleId), data, { merge: true });
 }
 
 // ── İadeler ──────────────────────────────────────────────────────
 
 function fbStreamReturns(onData, onError) {
-  return fbDB.collection('returns')
-    .onSnapshot(
-      snap => {
-        const docs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-        docs.sort((a, b) => {
-          const ta = a.createdAt?.seconds ?? new Date(a.createdAt || 0).getTime() / 1000;
-          const tb = b.createdAt?.seconds ?? new Date(b.createdAt || 0).getTime() / 1000;
-          return tb - ta;
-        });
-        onData(docs);
-      },
-      onError || (err => console.error('[FB] streamReturns:', err))
-    );
+  return onSnapshot(collection(fbDB, 'returns'),
+    snap => {
+      const docs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      docs.sort((a, b) => {
+        const ta = a.createdAt?.seconds ?? new Date(a.createdAt || 0).getTime() / 1000;
+        const tb = b.createdAt?.seconds ?? new Date(b.createdAt || 0).getTime() / 1000;
+        return tb - ta;
+      });
+      onData(docs);
+    },
+    onError || (err => console.error('[FB] streamReturns:', err))
+  );
 }
 
 async function fbSaveReturn(ret) {
   const ownerId = uid();
-  const batch = fbDB.batch();
+  const batch = writeBatch(fbDB);
 
-  const retRef = fbDB.collection('returns').doc(ret.id);
+  const retRef = doc(fbDB, 'returns', ret.id);
   batch.set(retRef, { ...ret, ownerId, createdAt: TS() });
 
   // Stoku geri yükle
   if (ret.items) {
     for (const item of ret.items) {
-      const prodRef = fbDB.collection('products').doc(item.productId);
+      const prodRef = doc(fbDB, 'products', item.productId);
       batch.update(prodRef, { stock: INC(item.qty), updatedAt: TS() });
     }
   }
@@ -154,5 +154,7 @@ async function fbSaveReturn(ret) {
 }
 
 async function fbDeleteReturn(id) {
-  return fbDB.collection('returns').doc(id).delete();
+  const docRef = doc(fbDB, 'returns', id);
+  await deleteDoc(docRef);
+  console.log('Veritabanından başarıyla silindi:', id);
 }
