@@ -54,7 +54,7 @@ async function fbDeleteProduct(id) {
 function fbStreamSales(onData, onError) {
   const q = fbDB.collection('sales').where('ownerId', '==', uid());
   return q.onSnapshot(snap => {
-      const docs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      const docs = snap.docs.map(d => ({ ...d.data(), id: d.id }));
       docs.sort((a, b) => {
         const ta = a.createdAt?.seconds ?? new Date(a.createdAt || 0).getTime() / 1000;
         const tb = b.createdAt?.seconds ?? new Date(b.createdAt || 0).getTime() / 1000;
@@ -112,7 +112,7 @@ function fbStreamReturns(onData, onError) {
   if (!userId) { onData([]); return; }
   const q = fbDB.collection('returns').where('ownerId', '==', userId);
   return q.onSnapshot(snap => {
-      const docs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      const docs = snap.docs.map(d => ({ ...d.data(), id: d.id }));
       docs.sort((a, b) => {
         const ta = a.createdAt?.seconds ?? new Date(a.createdAt || 0).getTime() / 1000;
         const tb = b.createdAt?.seconds ?? new Date(b.createdAt || 0).getTime() / 1000;
