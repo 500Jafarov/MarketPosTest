@@ -11,8 +11,3 @@ const app = firebase.initializeApp(firebaseConfig);
 
 const fbAuth = firebase.auth(app);
 const fbDB   = firebase.firestore(app);
-
-firebase.firestore().enableMultiTabIndexedDbPersistence(fbDB).catch(err => {
-  if (err.code === 'failed-precondition') console.warn('[FB] Birden fazla sekme, persistence devre disi.');
-  if (err.code === 'unimplemented')       console.warn('[FB] Tarayici persistence desteklemiyor.');
-});
