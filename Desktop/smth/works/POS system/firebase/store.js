@@ -112,11 +112,11 @@ async function fbDeleteSale(id) {
 }
 
 async function fbUpdateSaleCustomer(id, customerName, customerPhone) {
-  return fbDB.collection('sales').doc(id).update({
+  return fbDB.collection('sales').doc(id).set({
     customerName: customerName || '',
     customerPhone: customerPhone || '',
     updatedAt: TS(),
-  });
+  }, { merge: true });
 }
 
 // ── İadeler ──────────────────────────────────────────────────────

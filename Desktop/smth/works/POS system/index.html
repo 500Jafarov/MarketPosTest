@@ -1552,7 +1552,7 @@ function AppProvider({ children }) {
   }, []);
   const updateSaleCustomer = useCallback((id, customerName, customerPhone) => {
     setSales(prev => prev.map(s => s.id === id ? { ...s, customerName, customerPhone } : s));
-    fbUpdateSaleCustomer(id, customerName, customerPhone).catch(err => console.error('[FB] updateSaleCustomer:', err));
+    fbUpdateSaleCustomer(id, customerName, customerPhone).catch(err => { console.error('[FB] updateSaleCustomer:', err); addToast('Xəta: müştəri məlumatı saxlanmadı.', 'error'); });
   }, []);
   const deleteTransfer = useCallback((id) => { setTransfers(prev => prev.filter(x => x.id !== id)); }, []);
   const clearAllTransfers = useCallback(() => { setTransfers([]); }, []);
@@ -3524,8 +3524,11 @@ function SalesPage() {
   const openEditCustomer = (s) => { setEditCustomerSale(s); setEditName(s.customerName || ''); setEditPhone(s.customerPhone || ''); };
   const saveEditCustomer = () => {
     if (!editCustomerSale) return;
-    updateSaleCustomer(editCustomerSale.id, editName.trim(), editPhone.trim());
-    if (selectedSale?.id === editCustomerSale.id) setSelectedSale(prev => ({ ...prev, customerName: editName.trim(), customerPhone: editPhone.trim() }));
+    // sales array-dan ən son ID-ni al (Firestore stream sonradan yeniləmiş ola bilər)
+    const liveSale = sales.find(s => s.id === editCustomerSale.id || s.receiptNo === editCustomerSale.receiptNo);
+    if (!liveSale) { addToast('Satış tapılmadı, səhifəni yeniləyin.', 'error'); return; }
+    updateSaleCustomer(liveSale.id, editName.trim(), editPhone.trim());
+    if (selectedSale?.id === liveSale.id) setSelectedSale(prev => ({ ...prev, customerName: editName.trim(), customerPhone: editPhone.trim() }));
     setEditCustomerSale(null);
     addToast('Müştəri məlumatı yeniləndi.', 'success');
   };
