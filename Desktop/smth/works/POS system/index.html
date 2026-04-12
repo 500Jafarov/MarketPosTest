@@ -1792,7 +1792,7 @@ function LoginPage() {
       React.createElement('form', { onSubmit: handleSubmit },
         React.createElement('div', { className: 'form-group' },
           React.createElement('label', { className: 'form-label' }, 'E-posta'),
-          React.createElement('input', { className: 'form-control', type: 'email', value: email, onChange: e => setEmail(e.target.value), placeholder: 'nümunə@mağaza.com', autoFocus: true, autoComplete: 'email' })
+          React.createElement('input', { className: 'form-control', type: 'email', value: email, onChange: e => setEmail(e.target.value), placeholder: 'email@example.com', autoFocus: true, autoComplete: 'email' })
         ),
         React.createElement('div', { className: 'form-group' },
           React.createElement('label', { className: 'form-label' }, 'Şifre'),
@@ -5077,16 +5077,16 @@ function SettingsPage() {
       React.createElement('div', { style: { maxWidth: 600 } },
         React.createElement('div', { className: 'card', style: { marginBottom: 16 } },
           React.createElement('div', { className: 'card-header' }, React.createElement('span', { className: 'card-title' }, '🏪 Mağaza Bilgileri')),
-          React.createElement('div', { className: 'form-group' }, React.createElement('label', { className: 'form-label' }, 'Mağaza adı'), React.createElement('input', { className: 'form-control', value: form.storeName || '', onChange: e => set('storeName', e.target.value), placeholder: '(nümunə) TAM Mağaza' })),
-          React.createElement('div', { className: 'form-group' }, React.createElement('label', { className: 'form-label' }, 'Ünvan'), React.createElement('input', { className: 'form-control', value: form.address || '', onChange: e => set('address', e.target.value), placeholder: '(nümunə) Nizami küçəsi 12, Bakı' })),
+          React.createElement('div', { className: 'form-group' }, React.createElement('label', { className: 'form-label' }, 'Mağaza adı'), React.createElement('input', { className: 'form-control', value: form.storeName || '', onChange: e => set('storeName', e.target.value), placeholder: 'Mağaza adı' })),
+          React.createElement('div', { className: 'form-group' }, React.createElement('label', { className: 'form-label' }, 'Ünvan'), React.createElement('input', { className: 'form-control', value: form.address || '', onChange: e => set('address', e.target.value), placeholder: 'Nizami küçəsi 12, Bakı' })),
           React.createElement('div', { className: 'form-grid-2' },
-            React.createElement('div', { className: 'form-group' }, React.createElement('label', { className: 'form-label' }, 'Telefon'), React.createElement('input', { className: 'form-control', value: form.phone || '', onChange: e => set('phone', e.target.value), placeholder: '(nümunə) 070 000 00 00' })),
-            React.createElement('div', { className: 'form-group' }, React.createElement('label', { className: 'form-label' }, 'E-posta'), React.createElement('input', { className: 'form-control', value: form.email || '', onChange: e => set('email', e.target.value), placeholder: '(nümunə) magaza@email.com' }))
+            React.createElement('div', { className: 'form-group' }, React.createElement('label', { className: 'form-label' }, 'Telefon'), React.createElement('input', { className: 'form-control', value: form.phone || '', onChange: e => set('phone', e.target.value), placeholder: '070 000 00 00' })),
+            React.createElement('div', { className: 'form-group' }, React.createElement('label', { className: 'form-label' }, 'E-posta'), React.createElement('input', { className: 'form-control', value: form.email || '', onChange: e => set('email', e.target.value), placeholder: 'magaza@email.com' }))
           )
         ),
         React.createElement('div', { className: 'card', style: { marginBottom: 16 } },
           React.createElement('div', { className: 'card-header' }, React.createElement('span', { className: 'card-title' }, '🧾 Fiş Ayarları')),
-          React.createElement('div', { className: 'form-group' }, React.createElement('label', { className: 'form-label' }, 'Qəbz alt yazısı'), React.createElement('textarea', { className: 'form-control', value: form.receiptFooter || '', onChange: e => set('receiptFooter', e.target.value), placeholder: '(nümunə) Alış-verişiniz üçün təşəkkür edirik! Yenidən gözləyirik.' }))
+          React.createElement('div', { className: 'form-group' }, React.createElement('label', { className: 'form-label' }, 'Qəbz alt yazısı'), React.createElement('textarea', { className: 'form-control', value: form.receiptFooter || '', onChange: e => set('receiptFooter', e.target.value), placeholder: 'Alış-verişiniz üçün təşəkkür edirik! Yenidən gözləyirik.' }))
         ),
         React.createElement('div', { className: 'card', style: { marginBottom: 16 } },
           React.createElement('div', { className: 'card-header' }, React.createElement('span', { className: 'card-title' }, '💰 Para ve Stok')),
