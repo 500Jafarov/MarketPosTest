@@ -108,7 +108,10 @@ async function fbUpdateSaleCustomer(saleId, customerName, customerPhone) {
 // İadeler
 
 function fbStreamReturns(onData, onError) {
-  return fbDB.collection('returns').onSnapshot(snap => {
+  const userId = fbAuth.currentUser?.uid;
+  if (!userId) { onData([]); return; }
+  const q = fbDB.collection('returns').where('ownerId', '==', userId);
+  return q.onSnapshot(snap => {
       const docs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
       docs.sort((a, b) => {
         const ta = a.createdAt?.seconds ?? new Date(a.createdAt || 0).getTime() / 1000;
