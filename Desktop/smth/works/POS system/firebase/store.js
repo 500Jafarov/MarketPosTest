@@ -120,7 +120,6 @@ async function fbUpdateSaleCustomer(saleId, customerName, customerPhone) {
 
 function fbStreamReturns(onData, onError) {
   return fbDB.collection('returns')
-    .where('ownerId', '==', uid())
     .onSnapshot(
       snap => {
         const docs = snap.docs.map(d => ({ id: d.id, ...d.data() }));

@@ -38,9 +38,9 @@ service cloud.firestore {
 
     // returns - create only, no update
     match /returns/{returnId} {
-      allow read, delete: if isResourceOwner();
+      allow read, delete: if isResourceOwner() || resource.data.ownerId == null;
       allow create: if isRequestOwner();
-      allow update: if false;
+      allow update: if isResourceOwner() || resource.data.ownerId == null;
     }
 
     // deny everything else

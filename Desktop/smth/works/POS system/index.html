@@ -1433,6 +1433,24 @@ function AppProvider({ children }) {
     return fbStreamReturns(r => setReturns(r));
   }, [currentUser?.uid]);
 
+  // ── Migration: Fix returns without ownerId ───────────────────
+  useEffect(() => {
+    if (!currentUser?.uid) return;
+    const fixReturns = async () => {
+      try {
+        const snap = await fbDB.collection('returns').where('ownerId', '==', null).get();
+        const batch = fbDB.batch();
+        for (const doc of snap.docs) {
+          batch.update(doc.ref, { ownerId: currentUser.uid });
+        }
+        if (!snap.empty) await batch.commit();
+      } catch (err) {
+        console.error('[Migration] fixReturns:', err);
+      }
+    };
+    fixReturns();
+  }, [currentUser?.uid]);
+
   const addToast = useCallback((msg, type = 'success') => {
     const id = genId();
     setToasts(t => [...t, { id, msg, type }]);
