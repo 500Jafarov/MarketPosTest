@@ -1539,8 +1539,17 @@ function AppProvider({ children }) {
   }, []);
 
   // Sales management
-  const deleteSale = useCallback((id) => { setSales(prev => prev.filter(x => x.id !== id)); }, []);
-  const clearSalesByFilter = useCallback((filterFn) => { setSales(prev => prev.filter(s => !filterFn(s))); }, []);
+  const deleteSale = useCallback((id) => {
+    setSales(prev => prev.filter(x => x.id !== id));
+    fbDeleteSale(id).catch(err => console.error('[FB] deleteSale:', err));
+  }, []);
+  const clearSalesByFilter = useCallback((filterFn) => {
+    setSales(prev => {
+      const toDelete = prev.filter(s => filterFn(s));
+      toDelete.forEach(s => fbDeleteSale(s.id).catch(err => console.error('[FB] clearSales:', err)));
+      return prev.filter(s => !filterFn(s));
+    });
+  }, []);
   const updateSaleCustomer = useCallback((id, customerName, customerPhone) => {
     setSales(prev => prev.map(s => s.id === id ? { ...s, customerName, customerPhone } : s));
     fbUpdateSaleCustomer(id, customerName, customerPhone).catch(err => console.error('[FB] updateSaleCustomer:', err));
@@ -1638,6 +1647,7 @@ function AppProvider({ children }) {
       createdAt: new Date().toISOString(),
     };
     setReturns(prev => [ret, ...prev]);
+    fbSaveReturn(ret).catch(err => console.error('[FB] processReturn:', err));
     return { ok: true, ret };
   }, [sales, returns, products]);
 
