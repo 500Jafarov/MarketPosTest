@@ -111,12 +111,9 @@ async function fbDeleteSale(id) {
   return fbDB.collection('sales').doc(id).delete();
 }
 
-async function fbUpdateSaleCustomer(receiptNo, customerName, customerPhone) {
+async function fbUpdateSaleCustomer(saleId, customerName, customerPhone) {
   const data = { customerName: customerName || '', customerPhone: customerPhone || '', updatedAt: TS() };
-  const snap = await fbDB.collection('sales').where('ownerId', '==', uid()).get();
-  const doc = snap.docs.find(d => d.data().receiptNo === receiptNo);
-  if (!doc) throw new Error('Satış tapılmadı: ' + receiptNo);
-  return doc.ref.set(data, { merge: true });
+  return fbDB.collection('sales').doc(saleId).set(data, { merge: true });
 }
 
 // ── İadeler ──────────────────────────────────────────────────────
