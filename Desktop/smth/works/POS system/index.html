@@ -1374,11 +1374,11 @@ function AppProvider({ children }) {
     const stored = Storage.get('products', SEED_PRODUCTS);
     return stored.map(p => ({ warehouseStock: 0, minWarehouseStock: 10, ...p }));
   });
-  const [sales, setSales] = useState(() => Storage.get('sales', generateSeedSales()));
+  const [sales, setSales] = useState([]);
   const [customers, setCustomers] = useState(() => Storage.get('customers', SEED_CUSTOMERS));
   const [settings, setSettings] = useState(SEED_SETTINGS);
   const [transfers, setTransfers] = useState(() => Storage.get('transfers', []));
-  const [returns, setReturns] = useState(() => Storage.get('returns', []));
+  const [returns, setReturns] = useState([]);
   const [currentUser, setCurrentUser] = useState(null);
   const [authReady, setAuthReady] = useState(false);
   const [toasts, setToasts] = useState([]);
