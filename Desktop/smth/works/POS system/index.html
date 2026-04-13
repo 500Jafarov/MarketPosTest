@@ -5022,18 +5022,21 @@ function SettingsPage() {
     reader.onload = (ev) => {
       try {
         const data = JSON.parse(ev.target.result);
-        if (!data.exportedBy || !data.settings) { addToast('Geçersiz yedek dosyası!', 'error'); return; }
+        // Minimal yoxlama: exportedAt VƏ ya products/sales olmalıdır
+        const hasProducts = Array.isArray(data.products) || Array.isArray(data.todaySales);
+        const hasMarker   = data.exportedAt || data.exportedBy;
+        if (!hasMarker && !hasProducts) { addToast('Keçərsiz yedək faylı! (tanınmayan format)', 'error'); return; }
         setRestoreData(data);
         setRestoreInfo({
           exportedAt: data.exportedAt,
           storeName: data.storeName,
           productCount: (data.products || []).length,
-          saleCount: (data.sales || []).length,
+          saleCount: (data.sales || data.todaySales || []).length,
           customerCount: (data.customers || []).length,
         });
-      } catch { addToast('Dosya okunamadı. Geçerli bir JSON yedek dosyası seçin.', 'error'); }
+      } catch { addToast('Fayl oxuna bilmədi. Düzgün JSON yedəyi seçin.', 'error'); }
     };
-    reader.readAsText(file);
+    reader.readAsText(file, 'utf-8');
     e.target.value = '';
   };
 
@@ -5047,6 +5050,17 @@ function SettingsPage() {
     const d = restoreData;
     const CHUNK = 450;
 
+    // {seconds, nanoseconds} obyektini Firestore Timestamp-ə çevir
+    const convertTimestamps = (obj) => {
+      if (!obj || typeof obj !== 'object') return obj;
+      if (Array.isArray(obj)) return obj.map(convertTimestamps);
+      if (obj.seconds != null && obj.nanoseconds != null)
+        return firebase.firestore.Timestamp.fromMillis(obj.seconds * 1000 + Math.floor(obj.nanoseconds / 1e6));
+      const result = {};
+      for (const key of Object.keys(obj)) result[key] = convertTimestamps(obj[key]);
+      return result;
+    };
+
     // Koleksiyondaki tüm belgeleri tek tek sil (parallel), sonra bekle
     const deleteCollection = async (col) => {
       const snap = await fbDB.collection(col).where('ownerId', '==', uid).get();
@@ -5059,9 +5073,11 @@ function SettingsPage() {
       for (let i = 0; i < items.length; i += CHUNK) {
         const b = fbDB.batch();
         items.slice(i, i + CHUNK).forEach(item => {
-          const { id, ...data } = item;
+          const { id, ...rawData } = item;
+          // ownerId → cari istifadəçi, Timestamp-ları çevir
+          const data = convertTimestamps({ ...rawData, ownerId: uid });
           const ref = id ? fbDB.collection(col).doc(id) : fbDB.collection(col).doc();
-          b.set(ref, { ...data, ownerId: uid });
+          b.set(ref, data);
         });
         await b.commit();
       }
@@ -5077,7 +5093,7 @@ function SettingsPage() {
       // 2. Sonra YENİ VERİYİ YÜKLE
       addToast('Yeni məlumatlar yüklənir…', 'info');
       await uploadChunked('products', d.products || []);
-      await uploadChunked('sales',    d.sales    || []);
+      await uploadChunked('sales',    d.sales || d.todaySales || []);
       await uploadChunked('returns',  d.returns  || []);
 
       // 3. Store ayarları
