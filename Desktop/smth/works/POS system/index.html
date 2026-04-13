@@ -28,6 +28,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/qz-tray@2.2.4/qz-tray.min.js" onerror="console.log('QZ Tray yüklənmədi, adi çap istifadə olunacaq')"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jsbarcode/3.11.5/JsBarcode.all.min.js" onerror="console.log('JsBarcode yüklənmədi')"></script>
+<script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js" onerror="console.log('EmailJS yüklənmədi')"></script>
 
 <!-- Firebase SDK (compat) -->
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
@@ -1300,6 +1301,11 @@ const SEED_CUSTOMERS = [
   { id: 'cust2', name: 'Ayşe Kaya', phone: '0541 333 4455', createdAt: '2024-02-10' },
   { id: 'cust3', name: 'Kartal Market', phone: '0212 555 6677', createdAt: '2024-03-01' },
 ];
+
+// ── EmailJS ──────────────────────────────────────────────────
+const EMAILJS_SERVICE_ID  = 'service_7zjm4ki';
+const EMAILJS_TEMPLATE_ID = '6K1YMTsLgnZ7ihw0e';
+const EMAILJS_PUBLIC_KEY  = '6K1YMTsLgnZ7ihw0e';
 
 const SEED_SETTINGS = {
   storeName: '',
@@ -5294,6 +5300,62 @@ function EndOfDayModal({ onClose }) {
     window.print();
   };
 
+  // EmailJS — gün sonu xülasəsini arxa planda göndər
+  const sendEODEmail = async () => {
+    if (!window.emailjs) { console.error('[EmailJS] SDK yüklənmədi'); return; }
+    if (!EMAILJS_SERVICE_ID || EMAILJS_SERVICE_ID.includes('BURAYA')) { console.warn('[EmailJS] Credentials konfiqurə edilməyib'); return; }
+    try {
+      const dateStr = now.toLocaleDateString('tr-TR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+      const topProductLines = topProducts.map((p, i) => `  ${i+1}. ${p.name} — ${p.qty} ədəd — ${fc(p.revenue)}`).join('\n') || '  —';
+      const cashierLines = Object.entries(cashierMap).map(([n, d]) => `  ${n}: ${d.count} əməliyyat — ${fc(d.revenue)}`).join('\n') || '  —';
+
+      const message = [
+        `📅 Tarix: ${dateStr}`,
+        `🏪 Mağaza: ${settings.storeName || 'MarketPOS'}`,
+        '',
+        '═══════════ MALİYYƏ ═══════════',
+        `💰 Günlük Ciro    : ${fc(totalRevenue)}`,
+        `📈 Net Kazanç     : ${fc(totalProfit)}  (%${profitMargin.toFixed(1)} marja)`,
+        `🛒 Alış Maliyəti  : ${fc(totalCost)}`,
+        '',
+        '═══════════ SATIŞ ═══════════',
+        `📋 Əməliyyat sayı : ${todaySales.length}`,
+        `📦 Satılan məhsul : ${totalItems} ədəd`,
+        `💵 Ortalama çek   : ${fc(avgSale)}`,
+        `🏷️  Pərakəndə      : ${fc(retailRevenue)} (${retailSales.length} əməliyyat)`,
+        `🏢 Topdan         : ${fc(wholeRevenue)} (${wholeSales.length} əməliyyat)`,
+        '',
+        '═══════════ ƏN ÇOX SATILAN ═══════════',
+        topProductLines,
+        '',
+        '═══════════ KASSİR ═══════════',
+        cashierLines,
+        '',
+        '— MarketPOS Avtomatik Hesabat —',
+      ].join('\n');
+
+      await window.emailjs.send(
+        EMAILJS_SERVICE_ID,
+        EMAILJS_TEMPLATE_ID,
+        {
+          store_name: settings.storeName || 'MarketPOS',
+          date: dateStr,
+          total_revenue: fc(totalRevenue),
+          net_profit: fc(totalProfit),
+          transaction_count: String(todaySales.length),
+          message,
+        },
+        EMAILJS_PUBLIC_KEY
+      );
+      console.log('[EmailJS] Gün sonu hesabatı göndərildi.');
+    } catch (err) {
+      console.error('[EmailJS] Mail göndərilə bilmədi:', err);
+    }
+  };
+
+  // Modal açıldığında avtomatik göndər
+  useEffect(() => { sendEODEmail(); }, []);
+
   return React.createElement('div', { className: 'modal-overlay', onClick: e => { if (e.target === e.currentTarget) onClose(); } },
     React.createElement('div', { className: 'modal modal-lg', style: { maxHeight: '92vh' } },
       React.createElement('div', { className: 'modal-header' },
@@ -5420,6 +5482,7 @@ function EndOfDayModal({ onClose }) {
       React.createElement('div', { className: 'modal-footer', style: { gap: 8 } },
         React.createElement('button', { className: 'btn btn-secondary', onClick: onClose }, 'Bağla'),
         React.createElement('button', { className: 'btn btn-secondary', onClick: handlePrint }, '🖨️ Yazdır'),
+        React.createElement('button', { className: 'btn btn-secondary', onClick: () => { sendEODEmail(); addToast('Hesabat e-poçta göndərildi.', 'success'); } }, '📧 E-poçt Göndər'),
         React.createElement('button', { className: 'btn btn-primary', onClick: handleBackup, style: { background: 'var(--green)', color: '#000' } }, '💾 JSON Yedek İndir')
       )
     )
