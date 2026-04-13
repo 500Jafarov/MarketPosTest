@@ -5482,8 +5482,7 @@ function EndOfDayModal({ onClose }) {
       React.createElement('div', { className: 'modal-footer', style: { gap: 8 } },
         React.createElement('button', { className: 'btn btn-secondary', onClick: onClose }, 'Bağla'),
         React.createElement('button', { className: 'btn btn-secondary', onClick: handlePrint }, '🖨️ Yazdır'),
-        React.createElement('button', { className: 'btn btn-secondary', onClick: () => { sendEODEmail(); addToast('Hesabat e-poçta göndərildi.', 'success'); } }, '📧 E-poçt Göndər'),
-        React.createElement('button', { className: 'btn btn-primary', onClick: handleBackup, style: { background: 'var(--green)', color: '#000' } }, '💾 JSON Yedek İndir')
+React.createElement('button', { className: 'btn btn-primary', onClick: handleBackup, style: { background: 'var(--green)', color: '#000' } }, '💾 JSON Yedek İndir')
       )
     )
   );
