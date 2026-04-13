@@ -1319,6 +1319,7 @@ const SEED_SETTINGS = {
   emailjsServiceId: '',
   emailjsTemplateId: '',
   emailjsPublicKey: '',
+  reportEmail: '',
 };
 
 // Generate sample sales
@@ -5147,6 +5148,10 @@ function SettingsPage() {
           React.createElement('div', { className: 'card-header' }, React.createElement('span', { className: 'card-title' }, '📧 E-poçt (EmailJS) Ayarları')),
           React.createElement('div', { className: 'alert alert-info', style: { marginBottom: 12, fontSize: 12 } }, 'emailjs.com saytından alınan məlumatları daxil edin. Gün sonu hesabatı bu hesab üzərindən göndəriləcək.'),
           React.createElement('div', { className: 'form-group' },
+            React.createElement('label', { className: 'form-label' }, 'Hesabat e-poçtu (kimə göndərilsin)'),
+            React.createElement('input', { className: 'form-control', type: 'email', value: form.reportEmail || '', onChange: e => set('reportEmail', e.target.value), placeholder: 'siz@example.com' })
+          ),
+          React.createElement('div', { className: 'form-group' },
             React.createElement('label', { className: 'form-label' }, 'Service ID'),
             React.createElement('input', { className: 'form-control', value: form.emailjsServiceId || '', onChange: e => set('emailjsServiceId', e.target.value), placeholder: 'service_xxxxxxx' })
           ),
@@ -5362,6 +5367,7 @@ function EndOfDayModal({ onClose }) {
         svcId,
         tplId,
         {
+          to_email: settings.reportEmail || '',
           store_name: settings.storeName || 'MarketPOS',
           date: dateStr,
           total_revenue: fc(totalRevenue),
