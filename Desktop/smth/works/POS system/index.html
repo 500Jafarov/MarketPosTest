@@ -5329,55 +5329,116 @@ function EndOfDayModal({ onClose }) {
   // EmailJS — gün sonu xülasəsini arxa planda göndər
   const sendEODEmail = async () => {
     if (!window.emailjs) { console.error('[EmailJS] SDK yüklənmədi'); return; }
+
+    const dateStr = now.toLocaleDateString('tr-TR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+    const topProductLines = topProducts.map((p, i) => `  ${i+1}. ${p.name} — ${p.qty} ədəd — ${fc(p.revenue)}`).join('\n') || '  —';
+    const cashierLines = Object.entries(cashierMap).map(([n, d]) => `  ${n}: ${d.count} əməliyyat — ${fc(d.revenue)}`).join('\n') || '  —';
+    const criticalStock = products.filter(p => p.active && (p.stock === 0 || p.stock <= p.minStock));
+    const criticalLines = criticalStock.length > 0
+      ? criticalStock.map(p => `  ${p.name}: mağaza=${p.stock}, anbar=${p.warehouseStock}`).join('\n')
+      : '  Kritik stok yoxdur';
+
+    // ── Üst bölüm: oxunaqlı xülasə ──────────────────────────
+    const summary = [
+      `📅 Tarix: ${dateStr}`,
+      `🏪 Mağaza: ${settings.storeName || 'MarketPOS'}`,
+      '',
+      '═══════════ MALİYYƏ ═══════════',
+      `💰 Günlük Ciro    : ${fc(totalRevenue)}`,
+      `📈 Net Kazanç     : ${fc(totalProfit)}  (%${profitMargin.toFixed(1)} marja)`,
+      `🛒 Alış Maliyəti  : ${fc(totalCost)}`,
+      '',
+      '═══════════ SATIŞ ═══════════',
+      `📋 Əməliyyat sayı : ${todaySales.length}`,
+      `📦 Satılan məhsul : ${totalItems} ədəd`,
+      `💵 Ortalama çek   : ${fc(avgSale)}`,
+      `🏷️  Pərakəndə      : ${fc(retailRevenue)} (${retailSales.length} əməliyyat)`,
+      `🏢 Topdan         : ${fc(wholeRevenue)} (${wholeSales.length} əməliyyat)`,
+      '',
+      '═══════════ ƏN ÇOX SATILAN ═══════════',
+      topProductLines,
+      '',
+      '═══════════ KASSİR ═══════════',
+      cashierLines,
+      '',
+      '═══════════ KRİTİK STOK ═══════════',
+      criticalLines,
+      '',
+      '— MarketPOS Avtomatik Hesabat —',
+    ].join('\n');
+
+    // ── Alt bölüm: JSON yedəyi (yalnız bugünkü data) ────────
+    const backupObj = {
+      exportedAt: now.toISOString(),
+      storeName: settings.storeName || 'MarketPOS',
+      date: now.toLocaleDateString('az-AZ'),
+      summary: {
+        totalRevenue, totalCost, totalProfit,
+        profitMarginPercent: +profitMargin.toFixed(2),
+        totalTransactions: todaySales.length,
+        retailRevenue, wholeRevenue,
+        totalItemsSold: totalItems,
+      },
+      todaySales,
+      criticalStockProducts: criticalStock.map(p => ({
+        id: p.id, name: p.name, sku: p.sku,
+        stock: p.stock, minStock: p.minStock,
+        warehouseStock: p.warehouseStock,
+      })),
+      topProducts,
+      cashierBreakdown: cashierMap,
+    };
+    const jsonText = JSON.stringify(backupObj, null, 2);
+    const fullMessage = summary + '\n\n--- DATA BACKUP START ---\n' + jsonText + '\n--- DATA BACKUP END ---';
+
+    // ── Lokal yedəkləmə fallback ─────────────────────────────
+    const triggerLocalDownload = () => {
+      try {
+        const blob = new Blob([jsonText], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `marketpos-eod-${now.toISOString().slice(0,10)}.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+        console.log('[EmailJS] Lokal yedək faylı avtomatik endirildi.');
+      } catch (e) { console.error('[EmailJS] Lokal yedək xətası:', e); }
+    };
+
+    const params = {
+      store_name: settings.storeName || 'MarketPOS',
+      date: dateStr,
+      total_revenue: fc(totalRevenue),
+      net_profit: fc(totalProfit),
+      transaction_count: String(todaySales.length),
+    };
+
+    // ── 1. cəhd: JSON daxil tam mesaj ────────────────────────
     try {
-      const dateStr = now.toLocaleDateString('tr-TR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
-      const topProductLines = topProducts.map((p, i) => `  ${i+1}. ${p.name} — ${p.qty} ədəd — ${fc(p.revenue)}`).join('\n') || '  —';
-      const cashierLines = Object.entries(cashierMap).map(([n, d]) => `  ${n}: ${d.count} əməliyyat — ${fc(d.revenue)}`).join('\n') || '  —';
-
-      const message = [
-        `📅 Tarix: ${dateStr}`,
-        `🏪 Mağaza: ${settings.storeName || 'MarketPOS'}`,
-        '',
-        '═══════════ MALİYYƏ ═══════════',
-        `💰 Günlük Ciro    : ${fc(totalRevenue)}`,
-        `📈 Net Kazanç     : ${fc(totalProfit)}  (%${profitMargin.toFixed(1)} marja)`,
-        `🛒 Alış Maliyəti  : ${fc(totalCost)}`,
-        '',
-        '═══════════ SATIŞ ═══════════',
-        `📋 Əməliyyat sayı : ${todaySales.length}`,
-        `📦 Satılan məhsul : ${totalItems} ədəd`,
-        `💵 Ortalama çek   : ${fc(avgSale)}`,
-        `🏷️  Pərakəndə      : ${fc(retailRevenue)} (${retailSales.length} əməliyyat)`,
-        `🏢 Topdan         : ${fc(wholeRevenue)} (${wholeSales.length} əməliyyat)`,
-        '',
-        '═══════════ ƏN ÇOX SATILAN ═══════════',
-        topProductLines,
-        '',
-        '═══════════ KASSİR ═══════════',
-        cashierLines,
-        '',
-        '— MarketPOS Avtomatik Hesabat —',
-      ].join('\n');
-
-      await window.emailjs.send(
-        EMAILJS_SERVICE_ID,
-        EMAILJS_TEMPLATE_ID,
-        {
-          store_name: settings.storeName || 'MarketPOS',
-          date: dateStr,
-          total_revenue: fc(totalRevenue),
-          net_profit: fc(totalProfit),
-          transaction_count: String(todaySales.length),
-          message,
-        },
-        EMAILJS_PUBLIC_KEY
-      );
-      console.log('[EmailJS] Gün sonu hesabatı göndərildi.');
+      await window.emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID,
+        { ...params, message: fullMessage }, EMAILJS_PUBLIC_KEY);
+      console.log('[EmailJS] Tam hesabat (JSON daxil) göndərildi.');
+      return;
     } catch (err) {
-      console.error('[EmailJS] Mail göndərilə bilmədi.');
-      console.error('[EmailJS] Status:', err?.status);
-      console.error('[EmailJS] Error text:', err?.text);
-      console.error('[EmailJS] Tam xəta:', err);
+      if (err?.status === 413) {
+        console.warn('[EmailJS] Məlumat həcmi çox böyük (413), JSON-suz göndərilir...');
+      } else {
+        console.error('[EmailJS] Status:', err?.status, '| Error:', err?.text);
+        triggerLocalDownload();
+        return;
+      }
+    }
+
+    // ── 2. cəhd: yalnız xülasə (JSON-suz) ───────────────────
+    try {
+      await window.emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID,
+        { ...params, message: summary + '\n\n⚠ JSON yedəyi həcmi 50KB limiti aşdığı üçün əlavə edilmədi. Lokal yedək avtomatik endirildi.' },
+        EMAILJS_PUBLIC_KEY);
+      console.log('[EmailJS] Xülasə (JSON-suz) göndərildi.');
+      triggerLocalDownload();
+    } catch (err2) {
+      console.error('[EmailJS] Hər iki cəhd uğursuz oldu. Status:', err2?.status, '| Error:', err2?.text);
+      triggerLocalDownload();
     }
   };
 
