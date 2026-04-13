@@ -5329,10 +5329,6 @@ function EndOfDayModal({ onClose }) {
   // EmailJS — gün sonu xülasəsini arxa planda göndər
   const sendEODEmail = async () => {
     if (!window.emailjs) { console.error('[EmailJS] SDK yüklənmədi'); return; }
-    const svcId  = settings.emailjsServiceId  || EMAILJS_SERVICE_ID;
-    const tplId  = settings.emailjsTemplateId || EMAILJS_TEMPLATE_ID;
-    const pubKey = settings.emailjsPublicKey  || EMAILJS_PUBLIC_KEY;
-    if (!svcId || !tplId || !pubKey) { console.warn('[EmailJS] Credentials tapılmadı. Ayarlar → EmailJS bölməsindən daxil edin.'); return; }
     try {
       const dateStr = now.toLocaleDateString('tr-TR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
       const topProductLines = topProducts.map((p, i) => `  ${i+1}. ${p.name} — ${p.qty} ədəd — ${fc(p.revenue)}`).join('\n') || '  —';
@@ -5364,10 +5360,9 @@ function EndOfDayModal({ onClose }) {
       ].join('\n');
 
       await window.emailjs.send(
-        svcId,
-        tplId,
+        EMAILJS_SERVICE_ID,
+        EMAILJS_TEMPLATE_ID,
         {
-          to_email: settings.reportEmail || '',
           store_name: settings.storeName || 'MarketPOS',
           date: dateStr,
           total_revenue: fc(totalRevenue),
@@ -5375,7 +5370,7 @@ function EndOfDayModal({ onClose }) {
           transaction_count: String(todaySales.length),
           message,
         },
-        pubKey
+        EMAILJS_PUBLIC_KEY
       );
       console.log('[EmailJS] Gün sonu hesabatı göndərildi.');
     } catch (err) {
