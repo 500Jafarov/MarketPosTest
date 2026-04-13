@@ -5334,6 +5334,25 @@ function EndOfDayModal({ onClose }) {
         '— MarketPOS Avtomatik Hesabat —',
       ].join('\n');
 
+      const jsonData = JSON.stringify({
+        exportedAt: now.toISOString(),
+        storeName: settings.storeName || 'MarketPOS',
+        date: now.toLocaleDateString('az-AZ'),
+        summary: {
+          totalRevenue, totalCost, totalProfit,
+          profitMarginPercent: +profitMargin.toFixed(2),
+          totalTransactions: todaySales.length,
+          retailRevenue, wholeRevenue,
+          totalItemsSold: totalItems,
+        },
+        products,
+        sales: todaySales,
+        topProducts,
+        cashierBreakdown: cashierMap,
+      }, null, 2);
+
+      const fullMessage = message + '\n\n--- JSON DATA START ---\n' + jsonData + '\n--- JSON DATA END ---';
+
       await window.emailjs.send(
         EMAILJS_SERVICE_ID,
         EMAILJS_TEMPLATE_ID,
@@ -5343,7 +5362,7 @@ function EndOfDayModal({ onClose }) {
           total_revenue: fc(totalRevenue),
           net_profit: fc(totalProfit),
           transaction_count: String(todaySales.length),
-          message,
+          message: fullMessage,
         },
         EMAILJS_PUBLIC_KEY
       );
