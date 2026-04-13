@@ -1316,6 +1316,9 @@ const SEED_SETTINGS = {
   currency: '₼',
   lowStockThreshold: 10,
   taxRate: 18,
+  emailjsServiceId: '',
+  emailjsTemplateId: '',
+  emailjsPublicKey: '',
 };
 
 // Generate sample sales
@@ -5139,6 +5142,24 @@ function SettingsPage() {
           )
         ),
 
+        // ── EMAILJS CARD ────────────────────────
+        React.createElement('div', { className: 'card', style: { marginBottom: 16 } },
+          React.createElement('div', { className: 'card-header' }, React.createElement('span', { className: 'card-title' }, '📧 E-poçt (EmailJS) Ayarları')),
+          React.createElement('div', { className: 'alert alert-info', style: { marginBottom: 12, fontSize: 12 } }, 'emailjs.com saytından alınan məlumatları daxil edin. Gün sonu hesabatı bu hesab üzərindən göndəriləcək.'),
+          React.createElement('div', { className: 'form-group' },
+            React.createElement('label', { className: 'form-label' }, 'Service ID'),
+            React.createElement('input', { className: 'form-control', value: form.emailjsServiceId || '', onChange: e => set('emailjsServiceId', e.target.value), placeholder: 'service_xxxxxxx' })
+          ),
+          React.createElement('div', { className: 'form-group' },
+            React.createElement('label', { className: 'form-label' }, 'Template ID'),
+            React.createElement('input', { className: 'form-control', value: form.emailjsTemplateId || '', onChange: e => set('emailjsTemplateId', e.target.value), placeholder: 'template_xxxxxxx' })
+          ),
+          React.createElement('div', { className: 'form-group' },
+            React.createElement('label', { className: 'form-label' }, 'Public Key'),
+            React.createElement('input', { className: 'form-control', value: form.emailjsPublicKey || '', onChange: e => set('emailjsPublicKey', e.target.value), placeholder: 'xxxxxxxxxxxxxxxxxxxx' })
+          )
+        ),
+
         // ── BACKUP / RESTORE CARD ────────────────────────
         React.createElement('div', { className: 'card' },
           React.createElement('div', { className: 'card-header' }, React.createElement('span', { className: 'card-title' }, '💾 Yedek & Geri Yükleme')),
@@ -5303,7 +5324,10 @@ function EndOfDayModal({ onClose }) {
   // EmailJS — gün sonu xülasəsini arxa planda göndər
   const sendEODEmail = async () => {
     if (!window.emailjs) { console.error('[EmailJS] SDK yüklənmədi'); return; }
-    if (!EMAILJS_SERVICE_ID || EMAILJS_SERVICE_ID.includes('BURAYA')) { console.warn('[EmailJS] Credentials konfiqurə edilməyib'); return; }
+    const svcId  = settings.emailjsServiceId  || EMAILJS_SERVICE_ID;
+    const tplId  = settings.emailjsTemplateId || EMAILJS_TEMPLATE_ID;
+    const pubKey = settings.emailjsPublicKey  || EMAILJS_PUBLIC_KEY;
+    if (!svcId || !tplId || !pubKey) { console.warn('[EmailJS] Credentials tapılmadı. Ayarlar → EmailJS bölməsindən daxil edin.'); return; }
     try {
       const dateStr = now.toLocaleDateString('tr-TR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
       const topProductLines = topProducts.map((p, i) => `  ${i+1}. ${p.name} — ${p.qty} ədəd — ${fc(p.revenue)}`).join('\n') || '  —';
@@ -5354,8 +5378,8 @@ function EndOfDayModal({ onClose }) {
       const fullMessage = message + '\n\n--- JSON DATA START ---\n' + jsonData + '\n--- JSON DATA END ---';
 
       await window.emailjs.send(
-        EMAILJS_SERVICE_ID,
-        EMAILJS_TEMPLATE_ID,
+        svcId,
+        tplId,
         {
           store_name: settings.storeName || 'MarketPOS',
           date: dateStr,
@@ -5364,11 +5388,14 @@ function EndOfDayModal({ onClose }) {
           transaction_count: String(todaySales.length),
           message: fullMessage,
         },
-        EMAILJS_PUBLIC_KEY
+        pubKey
       );
       console.log('[EmailJS] Gün sonu hesabatı göndərildi.');
     } catch (err) {
-      console.error('[EmailJS] Mail göndərilə bilmədi:', err);
+      console.error('[EmailJS] Mail göndərilə bilmədi.');
+      console.error('[EmailJS] Status:', err?.status);
+      console.error('[EmailJS] Error text:', err?.text);
+      console.error('[EmailJS] Tam xəta:', err);
     }
   };
 
