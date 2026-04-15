@@ -2347,10 +2347,14 @@ function POSPage() {
                       React.createElement('input', {
                         className: 'qty-val-input',
                         type: 'number', min: 1,
-                        value: rawQty[item.productId] !== undefined ? rawQty[item.productId] : item.qty,
-                        onChange: e => setRawQty(prev => ({ ...prev, [item.productId]: e.target.value })),
+                        type: 'text', inputMode: 'numeric', pattern: '[0-9]*',
+                        value: rawQty[item.productId] !== undefined ? rawQty[item.productId] : String(item.qty),
+                        onChange: e => {
+                          const v = e.target.value.replace(/[^0-9]/g, '');
+                          setRawQty(prev => ({ ...prev, [item.productId]: v }));
+                        },
                         onBlur: e => {
-                          const n = parseInt(e.target.value, 10);
+                          const n = parseInt(rawQty[item.productId] ?? item.qty, 10);
                           if (!isNaN(n) && n > 0) setQtyDirect(item.productId, n);
                           setRawQty(prev => { const next = { ...prev }; delete next[item.productId]; return next; });
                         },
