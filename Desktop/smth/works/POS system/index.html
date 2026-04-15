@@ -2095,6 +2095,7 @@ function POSPage() {
   const [customerPhone, setCustomerPhone] = useState('');
   const [notes, setNotes] = useState('');
   const [discount, setDiscount] = useState(0);
+  const [rawQty, setRawQty] = useState({});
   const [completedSale, setCompletedSale] = useState(null);
   const [showReceipt, setShowReceipt] = useState(false);
   const [cartDrawerOpen, setCartDrawerOpen] = useState(false);
@@ -2346,8 +2347,14 @@ function POSPage() {
                       React.createElement('input', {
                         className: 'qty-val-input',
                         type: 'number', min: 1,
-                        value: item.qty,
-                        onChange: e => setQtyDirect(item.productId, e.target.value),
+                        value: rawQty[item.productId] !== undefined ? rawQty[item.productId] : item.qty,
+                        onChange: e => setRawQty(prev => ({ ...prev, [item.productId]: e.target.value })),
+                        onBlur: e => {
+                          const n = parseInt(e.target.value, 10);
+                          if (!isNaN(n) && n > 0) setQtyDirect(item.productId, n);
+                          setRawQty(prev => { const next = { ...prev }; delete next[item.productId]; return next; });
+                        },
+                        onKeyDown: e => { if (e.key === 'Enter') e.target.blur(); },
                         onFocus: e => e.target.select(),
                       }),
                       React.createElement('button', { className: 'qty-btn', onClick: () => updateQty(item.productId, 1) }, '+')
@@ -2489,8 +2496,14 @@ function POSPage() {
                     React.createElement('input', {
                       className: 'qty-val-input',
                       type: 'number', min: 1,
-                      value: item.qty,
-                      onChange: e => setQtyDirect(item.productId, e.target.value),
+                      value: rawQty[item.productId] !== undefined ? rawQty[item.productId] : item.qty,
+                      onChange: e => setRawQty(prev => ({ ...prev, [item.productId]: e.target.value })),
+                      onBlur: e => {
+                        const n = parseInt(e.target.value, 10);
+                        if (!isNaN(n) && n > 0) setQtyDirect(item.productId, n);
+                        setRawQty(prev => { const next = { ...prev }; delete next[item.productId]; return next; });
+                      },
+                      onKeyDown: e => { if (e.key === 'Enter') e.target.blur(); },
                       onFocus: e => e.target.select(),
                     }),
                     React.createElement('button', { className: 'qty-btn', onClick: () => updateQty(item.productId, 1) }, '+')
