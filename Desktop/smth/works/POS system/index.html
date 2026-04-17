@@ -4555,9 +4555,9 @@ function ReportsPage() {
     ),
     React.createElement('div', { className: 'page-body' },
       React.createElement('div', { className: 'tabs' },
-        ['overview', 'products', 'monthly', 'transfers', 'daterange'].map(t =>
+        ['overview', 'products', 'monthly', 'transfers', 'daterange', 'stock'].map(t =>
           React.createElement('div', { key: t, className: `tab-item${activeTab === t ? ' active' : ''}`, onClick: () => setActiveTab(t) },
-            { overview: '📊 Genel Bakış', products: '📦 Ürün Analizi', monthly: '📅 Aylık Trend', transfers: '🔄 Transferler', daterange: '🗓️ Tarix Aralığı' }[t]
+            { overview: '📊 Genel Bakış', products: '📦 Ürün Analizi', monthly: '📅 Aylık Trend', transfers: '🔄 Transferler', daterange: '🗓️ Tarix Aralığı', stock: '🏷️ Stok Dəyəri' }[t]
           )
         )
       ),
@@ -4730,6 +4730,106 @@ function ReportsPage() {
           );
         })()
       ),
+
+      activeTab === 'stock' && (() => {
+        const activeProducts = products.filter(p => p.active !== false);
+
+        // Store stock value
+        const storeStockValue  = activeProducts.reduce((s, p) => s + (p.stock || 0) * (p.purchasePrice || 0), 0);
+        const storeStockQty    = activeProducts.reduce((s, p) => s + (p.stock || 0), 0);
+
+        // Warehouse stock value
+        const warehouseStockValue = activeProducts.reduce((s, p) => s + (p.warehouseStock || 0) * (p.purchasePrice || 0), 0);
+        const warehouseStockQty   = activeProducts.reduce((s, p) => s + (p.warehouseStock || 0), 0);
+
+        const totalValue = storeStockValue + warehouseStockValue;
+        const totalQty   = storeStockQty + warehouseStockQty;
+
+        // Sort by total value descending
+        const rows = activeProducts
+          .map(p => ({
+            id: p.id,
+            name: p.name,
+            sku: p.sku || '',
+            storeQty: p.stock || 0,
+            storeVal: (p.stock || 0) * (p.purchasePrice || 0),
+            whQty: p.warehouseStock || 0,
+            whVal: (p.warehouseStock || 0) * (p.purchasePrice || 0),
+            totalQty: (p.stock || 0) + (p.warehouseStock || 0),
+            totalVal: ((p.stock || 0) + (p.warehouseStock || 0)) * (p.purchasePrice || 0),
+            purchasePrice: p.purchasePrice || 0,
+          }))
+          .sort((a, b) => b.totalVal - a.totalVal);
+
+        return React.createElement('div', null,
+          // Summary cards
+          React.createElement('div', { className: 'stats-grid', style: { gridTemplateColumns: 'repeat(3,1fr)', marginBottom: 16 } },
+            statCard('Mağaza Stoku', fmt.currency(storeStockValue, cur), storeStockQty + ' ədəd məhsul', '🏪', ''),
+            statCard('Anbar Stoku', fmt.currency(warehouseStockValue, cur), warehouseStockQty + ' ədəd məhsul', '🏭', 'blue'),
+            statCard('Ümumi Dəyər', fmt.currency(totalValue, cur), totalQty + ' ədəd', '💎', 'green')
+          ),
+
+          // Detailed table
+          React.createElement('div', { className: 'card' },
+            React.createElement('div', { className: 'card-header' },
+              React.createElement('span', { className: 'card-title' }, 'Məhsul üzrə Stok Dəyəri'),
+              React.createElement('span', { style: { fontSize: 12, color: 'var(--text3)' } }, activeProducts.length + ' aktiv məhsul')
+            ),
+            React.createElement('div', { className: 'table-wrap' },
+              React.createElement('table', null,
+                React.createElement('thead', null,
+                  React.createElement('tr', null,
+                    React.createElement('th', { style: { width: 36 } }, '#'),
+                    React.createElement('th', null, 'Məhsul'),
+                    React.createElement('th', { style: { textAlign: 'right' } }, 'Maya'),
+                    React.createElement('th', { style: { textAlign: 'right' } }, 'Mağaza (ədəd)'),
+                    React.createElement('th', { style: { textAlign: 'right' } }, 'Mağaza (₼)'),
+                    React.createElement('th', { style: { textAlign: 'right' } }, 'Anbar (ədəd)'),
+                    React.createElement('th', { style: { textAlign: 'right' } }, 'Anbar (₼)'),
+                    React.createElement('th', { style: { textAlign: 'right' } }, 'Cəmi (₼)')
+                  )
+                ),
+                React.createElement('tbody', null,
+                  rows.map((r, i) =>
+                    React.createElement('tr', { key: r.id,
+                      style: r.storeQty === 0 && r.whQty === 0 ? { opacity: 0.45 } : {}
+                    },
+                      React.createElement('td', { style: { color: 'var(--text3)', fontSize: 12 } }, i + 1),
+                      React.createElement('td', null,
+                        React.createElement('div', { style: { fontWeight: 600, fontSize: 13 } }, r.name),
+                        r.sku && React.createElement('div', { style: { fontSize: 11, color: 'var(--text3)', fontFamily: 'var(--mono)' } }, r.sku)
+                      ),
+                      React.createElement('td', { className: 'fw-mono', style: { textAlign: 'right', color: 'var(--text3)', fontSize: 12 } },
+                        r.purchasePrice > 0 ? fmt.currency(r.purchasePrice, cur) : '—'
+                      ),
+                      React.createElement('td', { className: 'fw-mono', style: { textAlign: 'right', color: r.storeQty === 0 ? 'var(--red)' : r.storeQty <= 5 ? 'var(--accent)' : 'var(--text1)' } }, r.storeQty),
+                      React.createElement('td', { className: 'fw-mono fw-bold', style: { textAlign: 'right', color: 'var(--accent)' } },
+                        r.purchasePrice > 0 ? fmt.currency(r.storeVal, cur) : '—'
+                      ),
+                      React.createElement('td', { className: 'fw-mono', style: { textAlign: 'right', color: r.whQty === 0 ? 'var(--text3)' : 'var(--text1)' } }, r.whQty),
+                      React.createElement('td', { className: 'fw-mono fw-bold', style: { textAlign: 'right', color: 'var(--blue)' } },
+                        r.purchasePrice > 0 ? fmt.currency(r.whVal, cur) : '—'
+                      ),
+                      React.createElement('td', { className: 'fw-mono fw-bold', style: { textAlign: 'right', color: 'var(--green)', fontSize: 13 } },
+                        r.purchasePrice > 0 ? fmt.currency(r.totalVal, cur) : '—'
+                      )
+                    )
+                  ),
+                  // Total row
+                  React.createElement('tr', { style: { borderTop: '2px solid var(--border)', background: 'var(--bg3)' } },
+                    React.createElement('td', { colSpan: 3, style: { fontWeight: 700, fontSize: 13 } }, 'CƏMİ'),
+                    React.createElement('td', { className: 'fw-mono fw-bold', style: { textAlign: 'right', color: 'var(--accent)', fontSize: 14 } }, storeStockQty),
+                    React.createElement('td', { className: 'fw-mono fw-bold', style: { textAlign: 'right', color: 'var(--accent)', fontSize: 14 } }, fmt.currency(storeStockValue, cur)),
+                    React.createElement('td', { className: 'fw-mono fw-bold', style: { textAlign: 'right', color: 'var(--blue)', fontSize: 14 } }, warehouseStockQty),
+                    React.createElement('td', { className: 'fw-mono fw-bold', style: { textAlign: 'right', color: 'var(--blue)', fontSize: 14 } }, fmt.currency(warehouseStockValue, cur)),
+                    React.createElement('td', { className: 'fw-mono fw-bold', style: { textAlign: 'right', color: 'var(--green)', fontSize: 15 } }, fmt.currency(totalValue, cur))
+                  )
+                )
+              )
+            )
+          )
+        );
+      })(),
 
       activeTab === 'daterange' && (() => {
         // Tarix aralığı filtri
