@@ -1903,7 +1903,7 @@ function Sidebar({ activePage, setPage, setShowEOD, sidebarOpen }) {
 // DASHBOARD
 // ============================================================
 function Dashboard({ setPage }) {
-  const { sales, products, settings } = useApp();
+  const { sales, products, settings, returns } = useApp();
   const cur = settings.currency || '₼';
 
   const today = new Date(); today.setHours(0,0,0,0);
@@ -1913,6 +1913,11 @@ function Dashboard({ setPage }) {
   const todaySales = sales.filter(s => toDate(s.createdAt) >= today);
   const weekSales = sales.filter(s => toDate(s.createdAt) >= weekAgo);
   const monthSales = sales.filter(s => toDate(s.createdAt) >= monthAgo);
+
+  const todayReturns  = (returns || []).filter(r => toDate(r.createdAt) >= today);
+  const weekReturns   = (returns || []).filter(r => toDate(r.createdAt) >= weekAgo);
+  const monthReturns  = (returns || []).filter(r => toDate(r.createdAt) >= monthAgo);
+  const sumReturns = arr => arr.reduce((s, r) => s + (r.total || 0), 0);
 
   const sum = arr => arr.reduce((s, x) => s + x.total, 0);
   const lowStock = products.filter(p => p.active && p.stock > 0 && p.stock <= p.minStock);
@@ -1951,9 +1956,9 @@ function Dashboard({ setPage }) {
     ),
     React.createElement('div', { className: 'page-body' },
       React.createElement('div', { className: 'stats-grid' },
-        statCard('Günlük Dövriyyə', fmt.currency(sum(todaySales), cur), todaySales.length + ' əməliyyat', '💰', ''),
-        statCard('Bu Həftə', fmt.currency(sum(weekSales), cur), weekSales.length + ' əməliyyat', '📅', 'blue'),
-        statCard('Bu Ay', fmt.currency(sum(monthSales), cur), monthSales.length + ' əməliyyat', '📆', 'green'),
+        statCard('Günlük Dövriyyə', fmt.currency(sum(todaySales) - sumReturns(todayReturns), cur), todaySales.length + ' sat · ' + todayReturns.length + ' iade', '💰', ''),
+        statCard('Bu Həftə', fmt.currency(sum(weekSales) - sumReturns(weekReturns), cur), weekSales.length + ' əməliyyat', '📅', 'blue'),
+        statCard('Bu Ay', fmt.currency(sum(monthSales) - sumReturns(monthReturns), cur), monthSales.length + ' əməliyyat', '📆', 'green'),
         statCard('Az Stok', (lowStock.length + outOfStock.length) + ' məhsul', outOfStock.length + ' tükənmiş', '⚠️', outOfStock.length > 0 ? '' : 'green')
       ),
 
@@ -3639,7 +3644,15 @@ function SalesPage() {
 
   // Xülasə hesablamaları (filtr aktiv olduqda)
   const hasFilter = filterDate || filterType || search;
-  const totalRevenue = filtered.reduce((s, x) => s + x.total, 0);
+  const grossRevenue = filtered.reduce((s, x) => s + x.total, 0);
+  // Filtrə uyğun iadelər
+  const filteredReturnIds = new Set(filtered.map(s => s.id));
+  const filteredReturns = (returns || []).filter(r => {
+    if (filterDate && !toDate(r.createdAt).toISOString().startsWith(filterDate)) return false;
+    return filteredReturnIds.has(r.saleId) || !filterDate;
+  });
+  const totalReturnAmount = filteredReturns.reduce((s, r) => s + (r.total || 0), 0);
+  const totalRevenue = grossRevenue - totalReturnAmount;
   const retailCount = filtered.filter(s => s.type === 'retail').length;
   const wholesaleCount = filtered.filter(s => s.type === 'wholesale').length;
   const retailRevenue = filtered.filter(s => s.type === 'retail').reduce((s, x) => s + x.total, 0);
@@ -3685,9 +3698,12 @@ function SalesPage() {
       hasFilter && filtered.length > 0 && React.createElement('div', { style: { marginBottom: 16 } },
         React.createElement('div', { className: 'stats-grid', style: { marginBottom: 12 } },
           React.createElement('div', { className: 'stat-card green' },
-            React.createElement('div', { className: 'stat-label' }, filterDate ? fmt.date(filterDate) + ' — Ümumi Gəlir' : 'Ümumi Gəlir'),
+            React.createElement('div', { className: 'stat-label' }, filterDate ? fmt.date(filterDate) + ' — Net Gəlir' : 'Net Gəlir'),
             React.createElement('div', { className: 'stat-value' }, fmt.currency(totalRevenue, cur)),
-            React.createElement('div', { className: 'stat-sub' }, filtered.length + ' əməliyyat')
+            React.createElement('div', { className: 'stat-sub' },
+              fmt.currency(grossRevenue, cur) + ' brüt' +
+              (totalReturnAmount > 0 ? ' · −' + fmt.currency(totalReturnAmount, cur) + ' iade' : '')
+            )
           ),
           React.createElement('div', { className: 'stat-card' },
             React.createElement('div', { className: 'stat-label' }, '🏷️ Pərakəndə'),
