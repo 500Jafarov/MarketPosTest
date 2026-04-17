@@ -4516,8 +4516,11 @@ function ReportsPage() {
   const thisMonth = sales.filter(s => toDate(s.createdAt) >= monthStart);
   const prevMonth = sales.filter(s => { const d = toDate(s.createdAt); return d >= prevMonthStart && d <= prevMonthEnd; });
   const todaySales = sales.filter(s => toDate(s.createdAt) >= today);
+  const todayReturns = (returns || []).filter(r => toDate(r.createdAt) >= today);
+  const thisMonthReturns = (returns || []).filter(r => toDate(r.createdAt) >= monthStart);
 
   const sum = (arr) => arr.reduce((s, x) => s + x.total, 0);
+  const sumRet = (arr) => arr.reduce((s, r) => s + (r.total || 0), 0);
   const retailSales = thisMonth.filter(s => s.type === 'retail');
   const wholeSales = thisMonth.filter(s => s.type === 'wholesale');
 
@@ -4560,8 +4563,8 @@ function ReportsPage() {
       ),
       activeTab === 'overview' && React.createElement('div', null,
         React.createElement('div', { className: 'stats-grid' },
-          statCard('Günlük Dövriyyə', fmt.currency(sum(todaySales), cur), todaySales.length + ' əməliyyat', '💰', ''),
-          statCard('Bu Ay Ciro', fmt.currency(sum(thisMonth), cur), thisMonth.length + ' əməliyyat', '📅', 'green'),
+          statCard('Günlük Dövriyyə', fmt.currency(sum(todaySales) - sumRet(todayReturns), cur), todaySales.length + ' sat · ' + todayReturns.length + ' iade', '💰', ''),
+          statCard('Bu Ay Ciro', fmt.currency(sum(thisMonth) - sumRet(thisMonthReturns), cur), thisMonth.length + ' əməliyyat', '📅', 'green'),
           statCard('Geçen Ay', fmt.currency(sum(prevMonth), cur), prevMonth.length + ' əməliyyat', '📆', 'blue'),
           statCard('Toplam İade', fmt.currency(returns.reduce((a,r)=>a+r.total,0), cur), returns.length + ' iade', '↩️', '')
         ),
@@ -5287,14 +5290,16 @@ function SettingsPage() {
 // END OF DAY MODAL
 // ============================================================
 function EndOfDayModal({ onClose }) {
-  const { sales, products, settings, users, categories, customers, addToast } = useApp();
+  const { sales, products, settings, users, categories, customers, returns, addToast } = useApp();
   const cur = settings.currency || '₼';
   const now = new Date();
   const today = new Date(now); today.setHours(0,0,0,0);
 
   // Today's sales
   const todaySales = sales.filter(s => toDate(s.createdAt) >= today);
-  const totalRevenue = todaySales.reduce((a, s) => a + s.total, 0);  // Ciro (brüt)
+  const todayReturns = (returns || []).filter(r => toDate(r.createdAt) >= today);
+  const totalReturnAmount = todayReturns.reduce((a, r) => a + (r.total || 0), 0);
+  const totalRevenue = todaySales.reduce((a, s) => a + s.total, 0) - totalReturnAmount;  // Net Dövriyyə
   const retailSales = todaySales.filter(s => s.type === 'retail');
   const wholeSales = todaySales.filter(s => s.type === 'wholesale');
   const retailRevenue = retailSales.reduce((a, s) => a + s.total, 0);
@@ -5630,7 +5635,7 @@ React.createElement('button', { className: 'btn btn-primary', onClick: handleBac
 // APP SHELL
 // ============================================================
 function AppShell() {
-  const { currentUser, sales, settings, authReady } = useApp();
+  const { currentUser, sales, returns, settings, authReady } = useApp();
 
   if (!authReady) return React.createElement('div', {
     style: { display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -5653,7 +5658,8 @@ function AppShell() {
   // Today's stats for topbar
   const today = new Date(); today.setHours(0,0,0,0);
   const todaySales = sales.filter(s => toDate(s.createdAt) >= today);
-  const todayRev = todaySales.reduce((a, s) => a + s.total, 0);
+  const todayReturns = (returns || []).filter(r => toDate(r.createdAt) >= today);
+  const todayRev = todaySales.reduce((a, s) => a + s.total, 0) - todayReturns.reduce((a, r) => a + (r.total || 0), 0);
 
   if (!currentUser) return React.createElement(LoginPage);
 
