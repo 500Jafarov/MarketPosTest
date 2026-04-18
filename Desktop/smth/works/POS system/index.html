@@ -949,8 +949,10 @@ textarea.form-control { resize: vertical; min-height: 80px; }
   .hide-phone { display: none !important; }
 
   /* Tabs */
-  .tabs { gap: 0; overflow-x: auto; flex-wrap: nowrap; padding-bottom: 0; }
-  .tab-item { padding: 9px 12px; font-size: 12px; white-space: nowrap; }
+  .tabs { gap: 0; overflow-x: auto; flex-wrap: nowrap; padding-bottom: 0; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+  .tabs::-webkit-scrollbar { display: none; }
+  .tab-item { padding: 9px 10px; font-size: 18px; white-space: nowrap; }
+  .tab-text { display: none; }
 
   /* Filter row */
   .filter-row { gap: 7px; }
@@ -4557,7 +4559,8 @@ function ReportsPage() {
       React.createElement('div', { className: 'tabs' },
         ['overview', 'products', 'monthly', 'transfers', 'daterange', 'stock'].map(t =>
           React.createElement('div', { key: t, className: `tab-item${activeTab === t ? ' active' : ''}`, onClick: () => setActiveTab(t) },
-            { overview: '📊 Genel Bakış', products: '📦 Ürün Analizi', monthly: '📅 Aylık Trend', transfers: '🔄 Transferler', daterange: '🗓️ Tarix Aralığı', stock: '🏷️ Stok Dəyəri' }[t]
+            React.createElement('span', null, { overview: '📊', products: '📦', monthly: '📅', transfers: '🔄', daterange: '🗓️', stock: '🏷️' }[t]),
+            React.createElement('span', { className: 'tab-text' }, { overview: ' Genel Bakış', products: ' Ürün Analizi', monthly: ' Aylık Trend', transfers: ' Transferler', daterange: ' Tarix Aralığı', stock: ' Stok Dəyəri' }[t])
           )
         )
       ),
