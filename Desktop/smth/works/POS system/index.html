@@ -5403,34 +5403,34 @@ function EndOfDayModal({ onClose }) {
   const todayReturns = (returns || []).filter(r => toDate(r.createdAt) >= today);
   const totalReturnAmount = todayReturns.reduce((a, r) => a + (r.total || 0), 0);
   const totalRevenue = todaySales.reduce((a, s) => a + s.total, 0) - totalReturnAmount;  // Net Dövriyyə
-  const retailSales = todaySales.filter(s => s.type === 'retail');
-  const wholeSales = todaySales.filter(s => s.type === 'wholesale');
-  const retailRevenue = retailSales.reduce((a, s) => a + s.total, 0);
-  const wholeRevenue = wholeSales.reduce((a, s) => a + s.total, 0);
-  const totalItems = todaySales.reduce((a, s) => a + s.items.reduce((b, i) => b + i.qty, 0), 0);
   const grossRevenue = todaySales.reduce((a, s) => a + s.total, 0);
   const avgSale = todaySales.length > 0 ? grossRevenue / todaySales.length : 0;
+  const totalItems = todaySales.reduce((a, s) => a + s.items.reduce((b, i) => b + i.qty, 0), 0);
 
-  // Kazanç (Satış Maya − Qaytarılan Maya)
-  const totalCostGross = todaySales.reduce((acc, s) => {
-    return acc + s.items.reduce((ia, item) => {
-      const prod = products.find(p => p.id === item.productId);
-      const cost = prod ? (prod.purchasePrice || 0) : 0;
-      return ia + cost * item.qty;
-    }, 0);
-  }, 0);
-  const returnCost = todayReturns.reduce((acc, r) => {
-    return acc + (r.items || []).reduce((ia, item) => {
-      const prod = products.find(p => p.id === item.productId);
-      const cost = prod ? (prod.purchasePrice || 0) : 0;
-      return ia + cost * item.qty;
-    }, 0);
-  }, 0);
+  // Helpers for cost lookup
+  const itemCost = (item) => { const p = products.find(x => x.id === item.productId); return (p ? p.purchasePrice || 0 : 0) * item.qty; };
+
+  // Gross cost of all today's sold items
+  const totalCostGross = todaySales.reduce((a, s) => a + s.items.reduce((b, i) => b + itemCost(i), 0), 0);
+  // Cost of returned items (restored to inventory)
+  const returnCost = todayReturns.reduce((a, r) => a + (r.items || []).reduce((b, i) => b + itemCost(i), 0), 0);
   const totalCost = totalCostGross - returnCost;
   const totalProfit = totalRevenue - totalCost;
   const profitMargin = totalRevenue > 0 ? (totalProfit / totalRevenue * 100) : 0;
-  const retailCost = retailSales.reduce((acc, s) => acc + s.items.reduce((ia, item) => { const prod = products.find(p => p.id === item.productId); return ia + (prod ? prod.purchasePrice || 0 : 0) * item.qty; }, 0), 0);
-  const wholeCost  = wholeSales.reduce((acc, s)  => acc + s.items.reduce((ia, item) => { const prod = products.find(p => p.id === item.productId); return ia + (prod ? prod.purchasePrice || 0 : 0) * item.qty; }, 0), 0);
+
+  // Retail vs Wholesale — NET (returns by saleType subtracted for consistency)
+  const retailSales = todaySales.filter(s => s.type === 'retail');
+  const wholeSales  = todaySales.filter(s => s.type === 'wholesale');
+  const retailReturns = todayReturns.filter(r => r.saleType === 'retail');
+  const wholeReturns  = todayReturns.filter(r => r.saleType === 'wholesale');
+  const retailRevenue = retailSales.reduce((a, s) => a + s.total, 0) - retailReturns.reduce((a, r) => a + (r.total || 0), 0);
+  const wholeRevenue  = wholeSales.reduce((a, s)  => a + s.total, 0) - wholeReturns.reduce((a, r)  => a + (r.total || 0), 0);
+  const retailCostGross = retailSales.reduce((a, s) => a + s.items.reduce((b, i) => b + itemCost(i), 0), 0);
+  const wholeCostGross  = wholeSales.reduce((a, s)  => a + s.items.reduce((b, i) => b + itemCost(i), 0), 0);
+  const retailReturnCost = retailReturns.reduce((a, r) => a + (r.items || []).reduce((b, i) => b + itemCost(i), 0), 0);
+  const wholeReturnCost  = wholeReturns.reduce((a, r)  => a + (r.items || []).reduce((b, i) => b + itemCost(i), 0), 0);
+  const retailCost = retailCostGross - retailReturnCost;
+  const wholeCost  = wholeCostGross  - wholeReturnCost;
 
   // Top products today
   const prodMap = {};
@@ -5625,22 +5625,38 @@ function EndOfDayModal({ onClose }) {
           React.createElement('div', { className: 'eod-header-band' },
             React.createElement('div', { className: 'eod-store-name' }, settings.storeName || 'MarketPOS'),
             React.createElement('div', { className: 'eod-date' }, now.toLocaleDateString('tr-TR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }) + ' · ' + now.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })),
-            React.createElement('div', { style: { display: 'flex', gap: 24, justifyContent: 'center', marginTop: 16, flexWrap: 'wrap' } },
-              // CİRO box
-              React.createElement('div', { style: { textAlign: 'center', padding: '14px 20px', background: 'rgba(232,160,32,0.1)', border: '1px solid rgba(232,160,32,0.25)', borderRadius: 12, minWidth: 160 } },
-                React.createElement('div', { style: { fontSize: 11, fontFamily: 'var(--mono)', color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 4 } }, '💰 Günlük Ciro'),
-                React.createElement('div', { style: { fontFamily: 'var(--sans)', fontSize: 34, fontWeight: 800, color: 'var(--accent)', lineHeight: 1 } },
+            React.createElement('div', { style: { display: 'flex', gap: 14, justifyContent: 'center', marginTop: 16, flexWrap: 'wrap' } },
+              // BRÜT box
+              React.createElement('div', { style: { textAlign: 'center', padding: '12px 16px', background: 'rgba(232,160,32,0.1)', border: '1px solid rgba(232,160,32,0.25)', borderRadius: 12, minWidth: 130 } },
+                React.createElement('div', { style: { fontSize: 10, fontFamily: 'var(--mono)', color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 4 } }, '💰 Brüt Satış'),
+                React.createElement('div', { style: { fontFamily: 'var(--sans)', fontSize: 26, fontWeight: 800, color: 'var(--accent)', lineHeight: 1 } },
+                  cur + grossRevenue.toLocaleString('az-AZ', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                ),
+                React.createElement('div', { style: { fontSize: 11, color: 'var(--text3)', fontFamily: 'var(--mono)', marginTop: 4 } }, todaySales.length + ' əməliyyat')
+              ),
+              // İADƏ box (only shown if returns exist)
+              totalReturnAmount > 0 && React.createElement('div', { style: { textAlign: 'center', padding: '12px 16px', background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.25)', borderRadius: 12, minWidth: 130 } },
+                React.createElement('div', { style: { fontSize: 10, fontFamily: 'var(--mono)', color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 4 } }, '↩️ İadə'),
+                React.createElement('div', { style: { fontFamily: 'var(--sans)', fontSize: 26, fontWeight: 800, color: 'var(--red)', lineHeight: 1 } },
+                  '−' + cur + totalReturnAmount.toLocaleString('az-AZ', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                ),
+                React.createElement('div', { style: { fontSize: 11, color: 'var(--text3)', fontFamily: 'var(--mono)', marginTop: 4 } }, todayReturns.length + ' iade')
+              ),
+              // NET DÖVRIYYƏ box
+              React.createElement('div', { style: { textAlign: 'center', padding: '12px 16px', background: 'rgba(99,102,241,0.1)', border: '1px solid rgba(99,102,241,0.25)', borderRadius: 12, minWidth: 130 } },
+                React.createElement('div', { style: { fontSize: 10, fontFamily: 'var(--mono)', color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 4 } }, '💵 Net Dövriyyə'),
+                React.createElement('div', { style: { fontFamily: 'var(--sans)', fontSize: 26, fontWeight: 800, color: 'var(--purple)', lineHeight: 1 } },
                   cur + totalRevenue.toLocaleString('az-AZ', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
                 ),
-                React.createElement('div', { style: { fontSize: 11, color: 'var(--text3)', fontFamily: 'var(--mono)', marginTop: 4 } }, totalReturnAmount > 0 ? 'İadə çıxılmış: −' + fc(totalReturnAmount) : 'Net dövriyyə')
+                React.createElement('div', { style: { fontSize: 11, color: 'var(--text3)', fontFamily: 'var(--mono)', marginTop: 4 } }, 'Brüt − İadə')
               ),
               // KAZANÇ box
-              React.createElement('div', { style: { textAlign: 'center', padding: '14px 20px', background: totalProfit >= 0 ? 'rgba(34,197,94,0.1)' : 'rgba(239,68,68,0.1)', border: '1px solid ' + (totalProfit >= 0 ? 'rgba(34,197,94,0.25)' : 'rgba(239,68,68,0.25)'), borderRadius: 12, minWidth: 160 } },
-                React.createElement('div', { style: { fontSize: 11, fontFamily: 'var(--mono)', color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 4 } }, '📈 Net Kazanç'),
-                React.createElement('div', { style: { fontFamily: 'var(--sans)', fontSize: 34, fontWeight: 800, color: totalProfit >= 0 ? 'var(--green)' : 'var(--red)', lineHeight: 1 } },
+              React.createElement('div', { style: { textAlign: 'center', padding: '12px 16px', background: totalProfit >= 0 ? 'rgba(34,197,94,0.1)' : 'rgba(239,68,68,0.1)', border: '1px solid ' + (totalProfit >= 0 ? 'rgba(34,197,94,0.25)' : 'rgba(239,68,68,0.25)'), borderRadius: 12, minWidth: 130 } },
+                React.createElement('div', { style: { fontSize: 10, fontFamily: 'var(--mono)', color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 4 } }, '📈 Net Kazanç'),
+                React.createElement('div', { style: { fontFamily: 'var(--sans)', fontSize: 26, fontWeight: 800, color: totalProfit >= 0 ? 'var(--green)' : 'var(--red)', lineHeight: 1 } },
                   cur + totalProfit.toLocaleString('az-AZ', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
                 ),
-                React.createElement('div', { style: { fontSize: 11, color: 'var(--text3)', fontFamily: 'var(--mono)', marginTop: 4 } }, 'Kâr marjı: %' + profitMargin.toFixed(1))
+                React.createElement('div', { style: { fontSize: 11, color: 'var(--text3)', fontFamily: 'var(--mono)', marginTop: 4 } }, 'Marja: %' + profitMargin.toFixed(1))
               )
             )
           ),
