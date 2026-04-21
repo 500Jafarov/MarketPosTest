@@ -3693,7 +3693,7 @@ function SalesPage() {
   const filtered = sales.filter(s => {
     const q = search.toLowerCase();
     const matchSearch = !q || s.receiptNo.toLowerCase().includes(q) || (s.customerName || '').toLowerCase().includes(q) || (s.customerPhone || '').includes(q) || (s.cashierName || '').toLowerCase().includes(q);
-    const matchType = !filterType || s.type === filterType;
+    const matchType = !filterType || (filterType === 'credit' ? s.isCredit : s.type === filterType);
     const matchDate = !filterDate || fmt.date(s.createdAt) === fmt.date(filterDate);
     return matchSearch && matchType && matchDate;
   });
@@ -3747,7 +3747,8 @@ function SalesPage() {
         React.createElement('select', { className: 'form-control', style: { width: 150 }, value: filterType, onChange: e => { setFilterType(e.target.value); setPage(1); } },
           React.createElement('option', { value: '' }, 'Tüm Türler'),
           React.createElement('option', { value: 'retail' }, '🏷️ Perakende'),
-          React.createElement('option', { value: 'wholesale' }, '📦 Toptan')
+          React.createElement('option', { value: 'wholesale' }, '📦 Toptan'),
+          React.createElement('option', { value: 'credit' }, '🔴 Borc')
         ),
         React.createElement('input', { className: 'form-control', type: 'date', style: { width: 150 }, value: filterDate, onChange: e => { setFilterDate(e.target.value); setPage(1); } }),
         filterDate && React.createElement('button', { className: 'btn btn-ghost btn-sm', onClick: () => { setFilterDate(''); setPage(1); } }, '✕ Tarixi sil')
