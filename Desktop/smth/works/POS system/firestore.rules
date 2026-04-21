@@ -29,11 +29,11 @@ service cloud.firestore {
       allow create: if isRequestOwner();
     }
 
-    // sales - create only, no update
+    // sales - owner can read, delete, and update (e.g. customer name)
     match /sales/{saleId} {
       allow read, delete: if isResourceOwner();
       allow create: if isRequestOwner();
-      allow update: if false;
+      allow update: if isResourceOwner();
     }
 
     // returns - create only, no update

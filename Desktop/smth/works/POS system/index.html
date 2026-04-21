@@ -1489,7 +1489,7 @@ function AppProvider({ children }) {
   }, []);
 
   // Sales
-  const completeSale = useCallback((cart, saleType, customerName, customerPhone, notes, cashier, discount = 0, cashReceived) => {
+  const completeSale = useCallback((cart, saleType, customerName, customerPhone, notes, cashier, discount = 0, cashReceived, isCredit = false) => {
     // 1. Stok doğrulama
     for (const item of cart) {
       const p = products.find(x => x.id === item.productId);
@@ -1512,6 +1512,7 @@ function AppProvider({ children }) {
       cashierId: cashier.id,
       notes,
       createdAt: new Date().toISOString(),
+      isCredit,
       ...(cashReceived != null ? { cashReceived, change: cashReceived - total } : {}),
     };
 
@@ -2109,6 +2110,7 @@ function POSPage() {
   const [editingPrice, setEditingPrice] = useState(null); // productId being edited
   const [editPriceVal, setEditPriceVal] = useState('');
   const [cashReceived, setCashReceived] = useState('');
+  const [isCredit, setIsCredit] = useState(false);
   const barcodeRef = useRef(null);
   const barcodeBuffer = useRef('');       // accumulates chars from scanner
   const barcodeTimer = useRef(null);      // clears buffer after pause
@@ -2256,11 +2258,11 @@ function POSPage() {
 
   const handleCompleteSale = () => {
     if (cart.length === 0) { addToast('Səbət boşdur!', 'error'); return; }
-    const result = completeSale(cart, saleType, customerName, customerPhone, notes, currentUser, discount, cashReceivedNum > 0 ? cashReceivedNum : undefined);
+    const result = completeSale(cart, saleType, customerName, customerPhone, notes, currentUser, discount, cashReceivedNum > 0 ? cashReceivedNum : undefined, isCredit);
     if (!result.ok) { addToast(result.error, 'error'); return; }
     setCompletedSale(result.sale);
     setCart([]);
-    setCustomerName(''); setCustomerPhone(''); setNotes(''); setDiscount(0); setCashReceived('');
+    setCustomerName(''); setCustomerPhone(''); setNotes(''); setDiscount(0); setCashReceived(''); setIsCredit(false);
     setShowReceipt(true);
     addToast('Satış tamamlandı! Qəbz №: ' + result.sale.receiptNo, 'success');
   };
@@ -2425,7 +2427,25 @@ function POSPage() {
                 React.createElement('span', null, 'CƏMİ'),
                 React.createElement('span', null, fmt.currency(Math.max(0, total), cur))
               ),
-              React.createElement('div', { className: 'cash-change-panel' },
+              React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 } },
+                React.createElement('button', {
+                  className: 'btn btn-sm',
+                  style: {
+                    flex: 1,
+                    background: isCredit ? 'var(--red, #dc2626)' : 'transparent',
+                    border: `1.5px solid ${isCredit ? 'var(--red, #dc2626)' : 'var(--border)'}`,
+                    color: isCredit ? '#fff' : 'var(--text2)',
+                    fontSize: 12,
+                    fontWeight: 600,
+                    borderRadius: 8,
+                    padding: '6px 10px',
+                    cursor: 'pointer',
+                    transition: 'all 0.15s',
+                  },
+                  onClick: () => setIsCredit(v => !v)
+                }, isCredit ? '🔴 Borça satılır' : '💳 Borca sat')
+              ),
+              !isCredit && React.createElement('div', { className: 'cash-change-panel' },
                 React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 6 } },
                   React.createElement('span', { style: { fontSize: 12, color: 'var(--text3)', whiteSpace: 'nowrap' } }, 'Alınan məbləğ:'),
                   React.createElement('input', {
@@ -2444,10 +2464,15 @@ function POSPage() {
               ),
               React.createElement('button', {
                 className: 'btn btn-primary btn-lg',
-                style: { width: '100%', justifyContent: 'center', marginTop: 10 },
+                style: {
+                  width: '100%',
+                  justifyContent: 'center',
+                  marginTop: 10,
+                  ...(isCredit ? { background: '#dc2626', boxShadow: '0 4px 12px rgba(220,38,38,0.4)' } : {}),
+                },
                 onClick: handleCompleteSale,
                 disabled: cart.length === 0
-              }, `✓ Satışı Tamamla — ${fmt.currency(Math.max(0, total), cur)}`)
+              }, isCredit ? `⚠ Borça sat — ${fmt.currency(Math.max(0, total), cur)}` : `✓ Satışı Tamamla — ${fmt.currency(Math.max(0, total), cur)}`)
             )
           )
         )
@@ -2570,7 +2595,25 @@ function POSPage() {
               React.createElement('span', null, 'CƏMİ'),
               React.createElement('span', null, fmt.currency(Math.max(0, total), cur))
             ),
-            React.createElement('div', { className: 'cash-change-panel' },
+            React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 } },
+              React.createElement('button', {
+                className: 'btn btn-sm',
+                style: {
+                  flex: 1,
+                  background: isCredit ? 'var(--red, #dc2626)' : 'transparent',
+                  border: `1.5px solid ${isCredit ? 'var(--red, #dc2626)' : 'var(--border)'}`,
+                  color: isCredit ? '#fff' : 'var(--text2)',
+                  fontSize: 13,
+                  fontWeight: 600,
+                  borderRadius: 8,
+                  padding: '7px 12px',
+                  cursor: 'pointer',
+                  transition: 'all 0.15s',
+                },
+                onClick: () => setIsCredit(v => !v)
+              }, isCredit ? '🔴 Borça satılır' : '💳 Borca sat')
+            ),
+            !isCredit && React.createElement('div', { className: 'cash-change-panel' },
               React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 6 } },
                 React.createElement('span', { style: { fontSize: 13, color: 'var(--text3)', whiteSpace: 'nowrap' } }, 'Alınan məbləğ:'),
                 React.createElement('input', {
@@ -2589,10 +2632,17 @@ function POSPage() {
             ),
             React.createElement('button', {
               className: 'btn btn-primary btn-lg',
-              style: { width: '100%', justifyContent: 'center', marginTop: 10, minHeight: 52, fontSize: 16 },
+              style: {
+                width: '100%',
+                justifyContent: 'center',
+                marginTop: 10,
+                minHeight: 52,
+                fontSize: 16,
+                ...(isCredit ? { background: '#dc2626', boxShadow: '0 4px 12px rgba(220,38,38,0.4)' } : {}),
+              },
               onClick: () => { handleCompleteSale(); setCartDrawerOpen(false); },
               disabled: cart.length === 0
-            }, `✓ Satışı Tamamla — ${fmt.currency(Math.max(0, total), cur)}`)
+            }, isCredit ? `⚠ Borça sat — ${fmt.currency(Math.max(0, total), cur)}` : `✓ Satışı Tamamla — ${fmt.currency(Math.max(0, total), cur)}`)
           )
         )
       )
@@ -2929,8 +2979,9 @@ function ReceiptModal({ sale, onClose, settings }) {
         React.createElement('div', { className: 'receipt-divider' }),
         sale.discount > 0 && React.createElement('div', { className: 'receipt-row' }, React.createElement('span', null, 'Endirim:'), React.createElement('span', null, '−' + fmt.currency(sale.discount, cur))),
         React.createElement('div', { className: `receipt-row receipt-total` }, React.createElement('strong', null, 'CƏMİ:'), React.createElement('strong', null, fmt.currency(sale.total, cur))),
-        sale.cashReceived != null && React.createElement('div', { className: 'receipt-row', style: { color: 'var(--text2)' } }, React.createElement('span', null, 'Alınan məbləğ:'), React.createElement('span', null, fmt.currency(sale.cashReceived, cur))),
-        sale.cashReceived != null && React.createElement('div', { className: 'receipt-row', style: { fontWeight: 700, color: sale.change >= 0 ? 'var(--green)' : 'var(--red)' } }, React.createElement('span', null, sale.change >= 0 ? 'Qaytarılacaq:' : 'Çatışmır:'), React.createElement('span', null, fmt.currency(Math.abs(sale.change), cur))),
+        sale.isCredit && React.createElement('div', { className: 'receipt-row', style: { fontWeight: 700, color: 'var(--red, #dc2626)', marginTop: 4 } }, React.createElement('span', null, '⚠ BORÇ:'), React.createElement('span', null, fmt.currency(sale.total, cur))),
+        !sale.isCredit && sale.cashReceived != null && React.createElement('div', { className: 'receipt-row', style: { color: 'var(--text2)' } }, React.createElement('span', null, 'Alınan məbləğ:'), React.createElement('span', null, fmt.currency(sale.cashReceived, cur))),
+        !sale.isCredit && sale.cashReceived != null && React.createElement('div', { className: 'receipt-row', style: { fontWeight: 700, color: sale.change >= 0 ? 'var(--green)' : 'var(--red)' } }, React.createElement('span', null, sale.change >= 0 ? 'Qaytarılacaq:' : 'Çatışmır:'), React.createElement('span', null, fmt.currency(Math.abs(sale.change), cur))),
         settings.receiptFooter && React.createElement('div', null,
           React.createElement('div', { className: 'receipt-divider' }),
           React.createElement('div', { className: 'receipt-footer' }, settings.receiptFooter)
@@ -3746,7 +3797,10 @@ function SalesPage() {
                 React.createElement('tr', { key: s.id },
                   React.createElement('td', { className: 'fw-mono', style: { fontSize: 12 } }, s.receiptNo),
                   React.createElement('td', { style: { fontSize: 12, color: 'var(--text3)' } }, fmt.datetime(s.createdAt)),
-                  React.createElement('td', null, React.createElement('span', { className: `badge ${s.type === 'retail' ? 'badge-yellow' : 'badge-blue'}` }, s.type === 'retail' ? 'Pərakəndə' : 'Topdansatış')),
+                  React.createElement('td', null,
+                    React.createElement('span', { className: `badge ${s.type === 'retail' ? 'badge-yellow' : 'badge-blue'}` }, s.type === 'retail' ? 'Pərakəndə' : 'Topdansatış'),
+                    s.isCredit && React.createElement('span', { className: 'badge', style: { background: 'rgba(220,38,38,0.15)', color: '#dc2626', marginLeft: 4 } }, 'Borc')
+                  ),
                   React.createElement('td', { style: { fontSize: 13 } },
                     React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 4 } },
                       React.createElement('span', null,
