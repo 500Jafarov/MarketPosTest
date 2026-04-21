@@ -1922,6 +1922,9 @@ function Dashboard({ setPage }) {
   const monthReturns  = (returns || []).filter(r => toDate(r.createdAt) >= monthAgo);
   const sumReturns = arr => arr.reduce((s, r) => s + (r.total || 0), 0);
 
+  const todayCreditSales = todaySales.filter(s => s.isCredit);
+  const todayCashSales   = todaySales.filter(s => !s.isCredit);
+
   const sum = arr => arr.reduce((s, x) => s + x.total, 0);
   const lowStock = products.filter(p => p.active && p.stock > 0 && p.stock <= p.minStock);
   const outOfStock = products.filter(p => p.active && p.stock === 0);
@@ -1959,10 +1962,10 @@ function Dashboard({ setPage }) {
     ),
     React.createElement('div', { className: 'page-body' },
       React.createElement('div', { className: 'stats-grid' },
-        statCard('Günlük Dövriyyə', fmt.currency(sum(todaySales) - sumReturns(todayReturns), cur), todaySales.length + ' sat · ' + todayReturns.length + ' iade', '💰', ''),
-        statCard('Bu Həftə', fmt.currency(sum(weekSales) - sumReturns(weekReturns), cur), weekSales.length + ' əməliyyat', '📅', 'blue'),
-        statCard('Bu Ay', fmt.currency(sum(monthSales) - sumReturns(monthReturns), cur), monthSales.length + ' əməliyyat', '📆', 'green'),
-        statCard('Az Stok', (lowStock.length + outOfStock.length) + ' məhsul', outOfStock.length + ' tükənmiş', '⚠️', outOfStock.length > 0 ? '' : 'green')
+        statCard('Günlük Dövriyyə', fmt.currency(sum(todayCashSales) - sumReturns(todayReturns), cur), todayCashSales.length + ' sat · ' + todayReturns.length + ' iade', '💰', ''),
+        statCard('Bu Həftə', fmt.currency(sum(weekSales.filter(s=>!s.isCredit)) - sumReturns(weekReturns), cur), weekSales.length + ' əməliyyat', '📅', 'blue'),
+        statCard('Bu Ay', fmt.currency(sum(monthSales.filter(s=>!s.isCredit)) - sumReturns(monthReturns), cur), monthSales.length + ' əməliyyat', '📆', 'green'),
+        statCard('Günlük Borc', fmt.currency(sum(todayCreditSales), cur), todayCreditSales.length + ' borc satış', '🔴', todayCreditSales.length > 0 ? '' : 'green')
       ),
 
       React.createElement('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 14 } },
@@ -4572,6 +4575,8 @@ function ReportsPage() {
   const thisMonth = sales.filter(s => toDate(s.createdAt) >= monthStart);
   const prevMonth = sales.filter(s => { const d = toDate(s.createdAt); return d >= prevMonthStart && d <= prevMonthEnd; });
   const todaySales = sales.filter(s => toDate(s.createdAt) >= today);
+  const todayCashSales = todaySales.filter(s => !s.isCredit);
+  const todayCreditSales = todaySales.filter(s => s.isCredit);
   const todayReturns = (returns || []).filter(r => toDate(r.createdAt) >= today);
   const thisMonthReturns = (returns || []).filter(r => toDate(r.createdAt) >= monthStart);
 
@@ -4620,9 +4625,9 @@ function ReportsPage() {
       ),
       activeTab === 'overview' && React.createElement('div', null,
         React.createElement('div', { className: 'stats-grid' },
-          statCard('Günlük Dövriyyə', fmt.currency(sum(todaySales) - sumRet(todayReturns), cur), todaySales.length + ' sat · ' + todayReturns.length + ' iade', '💰', ''),
-          statCard('Bu Ay Ciro', fmt.currency(sum(thisMonth) - sumRet(thisMonthReturns), cur), thisMonth.length + ' əməliyyat', '📅', 'green'),
-          statCard('Geçen Ay', fmt.currency(sum(prevMonth), cur), prevMonth.length + ' əməliyyat', '📆', 'blue'),
+          statCard('Günlük Dövriyyə', fmt.currency(sum(todayCashSales) - sumRet(todayReturns), cur), todayCashSales.length + ' sat · ' + todayReturns.length + ' iade', '💰', ''),
+          statCard('Günlük Borc', fmt.currency(sum(todayCreditSales), cur), todayCreditSales.length + ' borc satış', '🔴', todayCreditSales.length > 0 ? '' : 'green'),
+          statCard('Bu Ay Ciro', fmt.currency(sum(thisMonth.filter(s=>!s.isCredit)) - sumRet(thisMonthReturns), cur), thisMonth.length + ' əməliyyat', '📅', 'green'),
           statCard('Toplam İade', fmt.currency(returns.reduce((a,r)=>a+r.total,0), cur), returns.length + ' iade', '↩️', '')
         ),
         React.createElement('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 } },
