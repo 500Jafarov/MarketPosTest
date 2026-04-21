@@ -1924,6 +1924,8 @@ function Dashboard({ setPage }) {
 
   const todayCreditSales = todaySales.filter(s => s.isCredit);
   const todayCashSales   = todaySales.filter(s => !s.isCredit);
+  const weekCashSales    = weekSales.filter(s => !s.isCredit);
+  const monthCashSales   = monthSales.filter(s => !s.isCredit);
 
   const sum = arr => arr.reduce((s, x) => s + x.total, 0);
   const lowStock = products.filter(p => p.active && p.stock > 0 && p.stock <= p.minStock);
@@ -1963,9 +1965,10 @@ function Dashboard({ setPage }) {
     React.createElement('div', { className: 'page-body' },
       React.createElement('div', { className: 'stats-grid' },
         statCard('Günlük Dövriyyə', fmt.currency(sum(todayCashSales) - sumReturns(todayReturns), cur), todayCashSales.length + ' sat · ' + todayReturns.length + ' iade', '💰', ''),
-        statCard('Bu Həftə', fmt.currency(sum(weekSales.filter(s=>!s.isCredit)) - sumReturns(weekReturns), cur), weekSales.length + ' əməliyyat', '📅', 'blue'),
-        statCard('Bu Ay', fmt.currency(sum(monthSales.filter(s=>!s.isCredit)) - sumReturns(monthReturns), cur), monthSales.length + ' əməliyyat', '📆', 'green'),
-        statCard('Günlük Borc', fmt.currency(sum(todayCreditSales), cur), todayCreditSales.length + ' borc satış', '🔴', todayCreditSales.length > 0 ? '' : 'green')
+        statCard('Günlük Borc', fmt.currency(sum(todayCreditSales), cur), todayCreditSales.length + ' borc satış', '🔴', todayCreditSales.length > 0 ? '' : 'green'),
+        statCard('Bu Həftə', fmt.currency(sum(weekCashSales) - sumReturns(weekReturns), cur), weekSales.length + ' əməliyyat', '📅', 'blue'),
+        statCard('Bu Ay', fmt.currency(sum(monthCashSales) - sumReturns(monthReturns), cur), monthSales.length + ' əməliyyat', '📆', 'green'),
+        statCard('Az Stok', (lowStock.length + outOfStock.length) + ' məhsul', outOfStock.length + ' tükənmiş', '⚠️', outOfStock.length > 0 ? '' : 'green')
       ),
 
       React.createElement('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 14 } },
@@ -4582,6 +4585,7 @@ function ReportsPage() {
 
   const sum = (arr) => arr.reduce((s, x) => s + x.total, 0);
   const sumRet = (arr) => arr.reduce((s, r) => s + (r.total || 0), 0);
+  const thisMonthCash = thisMonth.filter(s => !s.isCredit);
   const retailSales = thisMonth.filter(s => s.type === 'retail');
   const wholeSales = thisMonth.filter(s => s.type === 'wholesale');
 
@@ -4627,7 +4631,7 @@ function ReportsPage() {
         React.createElement('div', { className: 'stats-grid' },
           statCard('Günlük Dövriyyə', fmt.currency(sum(todayCashSales) - sumRet(todayReturns), cur), todayCashSales.length + ' sat · ' + todayReturns.length + ' iade', '💰', ''),
           statCard('Günlük Borc', fmt.currency(sum(todayCreditSales), cur), todayCreditSales.length + ' borc satış', '🔴', todayCreditSales.length > 0 ? '' : 'green'),
-          statCard('Bu Ay Ciro', fmt.currency(sum(thisMonth.filter(s=>!s.isCredit)) - sumRet(thisMonthReturns), cur), thisMonth.length + ' əməliyyat', '📅', 'green'),
+          statCard('Bu Ay Ciro', fmt.currency(sum(thisMonthCash) - sumRet(thisMonthReturns), cur), thisMonth.length + ' əməliyyat', '📅', 'green'),
           statCard('Toplam İade', fmt.currency(returns.reduce((a,r)=>a+r.total,0), cur), returns.length + ' iade', '↩️', '')
         ),
         React.createElement('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 } },
