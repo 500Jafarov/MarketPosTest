@@ -1591,6 +1591,13 @@ function AppProvider({ children }) {
     fbUpdateSaleCustomer(id, customerName, customerPhone)
       .catch(err => { console.error('[FB] updateSaleCustomer:', err); addToast('Xəta: müştəri məlumatı saxlanmadı.', 'error'); });
   }, []);
+
+  const collectCredit = useCallback((id) => {
+    const collectedAt = new Date().toISOString();
+    setSales(prev => prev.map(s => s.id === id ? { ...s, isCredit: false, creditCollectedAt: collectedAt } : s));
+    fbCollectCredit(id, collectedAt)
+      .catch(err => { console.error('[FB] collectCredit:', err); addToast('Xəta: borc yenilənmədi.', 'error'); });
+  }, []);
   const deleteTransfer = useCallback((id) => { setTransfers(prev => prev.filter(x => x.id !== id)); }, []);
   const clearAllTransfers = useCallback(() => { setTransfers([]); }, []);
 
@@ -1712,7 +1719,7 @@ function AppProvider({ children }) {
     users, categories, products, sales, customers, settings, transfers, returns, currentUser, authReady,
     login, logout, saveProduct, deleteProduct, completeSale,
     saveCategory, deleteCategory, saveUser, deleteUser, saveSettings,
-    deleteSale, clearSalesByFilter, updateSaleCustomer,
+    deleteSale, clearSalesByFilter, updateSaleCustomer, collectCredit,
     deleteTransfer, clearAllTransfers,
     transferToShop, updateWarehouseStock,
     processReturn, deleteReturn,
@@ -1922,10 +1929,24 @@ function Dashboard({ setPage }) {
   const monthReturns  = (returns || []).filter(r => toDate(r.createdAt) >= monthAgo);
   const sumReturns = arr => arr.reduce((s, r) => s + (r.total || 0), 0);
 
+  // borc hələ alınmamış satışlar
   const todayCreditSales = todaySales.filter(s => s.isCredit);
-  const todayCashSales   = todaySales.filter(s => !s.isCredit);
-  const weekCashSales    = weekSales.filter(s => !s.isCredit);
-  const monthCashSales   = monthSales.filter(s => !s.isCredit);
+  // nağd satışlar + bu gün borcu alınmış (creditCollectedAt bu gün olan) satışlar
+  const todayCashSales = sales.filter(s => {
+    if (s.isCredit) return false;
+    if (s.creditCollectedAt) return toDate(s.creditCollectedAt) >= today;
+    return toDate(s.createdAt) >= today;
+  });
+  const weekCashSales = sales.filter(s => {
+    if (s.isCredit) return false;
+    if (s.creditCollectedAt) return toDate(s.creditCollectedAt) >= weekAgo;
+    return toDate(s.createdAt) >= weekAgo;
+  });
+  const monthCashSales = sales.filter(s => {
+    if (s.isCredit) return false;
+    if (s.creditCollectedAt) return toDate(s.creditCollectedAt) >= monthAgo;
+    return toDate(s.createdAt) >= monthAgo;
+  });
 
   const sum = arr => arr.reduce((s, x) => s + x.total, 0);
   const lowStock = products.filter(p => p.active && p.stock > 0 && p.stock <= p.minStock);
@@ -3665,13 +3686,14 @@ function InventoryPage() {
 // SALES HISTORY
 // ============================================================
 function SalesPage() {
-  const { sales, settings, addToast, deleteSale, clearSalesByFilter, processReturn, returns, currentUser, updateSaleCustomer } = useApp();
+  const { sales, settings, addToast, deleteSale, clearSalesByFilter, processReturn, returns, currentUser, updateSaleCustomer, collectCredit } = useApp();
   const [search, setSearch] = useState('');
   const [filterType, setFilterType] = useState('');
   const [filterDate, setFilterDate] = useState('');
   const [selectedSale, setSelectedSale] = useState(null);
   const [returnSale, setReturnSale] = useState(null);
   const [showClearModal, setShowClearModal] = useState(false);
+  const [collectSale, setCollectSale] = useState(null);
   const cur = settings.currency || '₼';
   const [page, setPage] = useState(1);
   const PER_PAGE = 20;
@@ -3826,7 +3848,12 @@ function SalesPage() {
                   React.createElement('td', { className: 'hide-phone', style: { fontSize: 13 } }, s.cashierName),
                   React.createElement('td', { className: 'fw-mono fw-bold', style: { color: 'var(--accent)' } }, fmt.currency(s.total, cur)),
                   React.createElement('td', null,
-                    React.createElement('div', { style: { display: 'flex', gap: 4 } },
+                    React.createElement('div', { style: { display: 'flex', gap: 4, flexWrap: 'wrap' } },
+                      s.isCredit && React.createElement('button', {
+                        className: 'btn btn-sm',
+                        style: { background: 'rgba(34,197,94,0.15)', color: '#22c55e', border: '1px solid rgba(34,197,94,0.3)', fontWeight: 600 },
+                        onClick: () => setCollectSale(s)
+                      }, '💚 Borcu Al'),
                       React.createElement('button', { className: 'btn btn-ghost btn-sm', onClick: () => setSelectedSale(s) }, '🧾 Görüntüle'),
                       React.createElement('button', { className: 'btn btn-secondary btn-sm', style: { color: 'var(--blue)', borderColor: 'rgba(59,130,246,0.3)' }, onClick: () => setReturnSale(s) }, '↩️ İade'),
                       React.createElement('button', { className: 'btn btn-danger btn-sm btn-icon', title: 'Sil', onClick: () => handleDeleteSingle(s.id) }, '🗑️')
@@ -3850,6 +3877,32 @@ function SalesPage() {
     selectedSale && React.createElement(ReceiptModal, { sale: selectedSale, onClose: () => setSelectedSale(null), settings }),
     returnSale && React.createElement(ReturnModal, { sale: returnSale, returns, onReturn: processReturn, currentUser, settings, onClose: () => setReturnSale(null), addToast }),
     showClearModal && React.createElement(ClearSalesModal, { sales, onClear: clearSalesByFilter, onClose: () => setShowClearModal(false), addToast }),
+    collectSale && React.createElement('div', { className: 'modal-overlay show', onClick: () => setCollectSale(null) },
+      React.createElement('div', { className: 'modal', style: { maxWidth: 380 }, onClick: e => e.stopPropagation() },
+        React.createElement('div', { className: 'modal-header' },
+          React.createElement('span', { className: 'modal-title' }, '💚 Borcu Al'),
+          React.createElement('button', { className: 'btn btn-ghost btn-icon', onClick: () => setCollectSale(null) }, '✕')
+        ),
+        React.createElement('div', { className: 'modal-body' },
+          React.createElement('div', { style: { fontSize: 13, color: 'var(--text2)', marginBottom: 8 } }, 'Qəbz №: ', React.createElement('strong', null, collectSale.receiptNo)),
+          collectSale.customerName && React.createElement('div', { style: { fontSize: 13, color: 'var(--text2)', marginBottom: 8 } }, 'Müştəri: ', React.createElement('strong', null, collectSale.customerName)),
+          React.createElement('div', { style: { fontSize: 20, fontWeight: 700, color: '#22c55e', marginBottom: 12 } }, fmt.currency(collectSale.total, cur)),
+          React.createElement('div', { style: { fontSize: 13, color: 'var(--text3)', background: 'var(--bg3)', borderRadius: 8, padding: '10px 14px' } },
+            '✅ Təsdiq etdikdən sonra bu satış bugünün (',
+            React.createElement('strong', null, fmt.date(new Date())),
+            ') dövriyyəsinə əlavə olunacaq.'
+          )
+        ),
+        React.createElement('div', { className: 'modal-footer' },
+          React.createElement('button', { className: 'btn btn-secondary', onClick: () => setCollectSale(null) }, 'Ləğv et'),
+          React.createElement('button', {
+            className: 'btn btn-primary',
+            style: { background: '#22c55e', color: '#000' },
+            onClick: () => { collectCredit(collectSale.id); addToast('Borc alındı! Dövriyyəyə əlavə edildi.', 'success'); setCollectSale(null); }
+          }, '✓ Bəli, Borcu Aldım')
+        )
+      )
+    ),
     editCustomerSale && React.createElement('div', { className: 'modal-overlay show', onClick: () => setEditCustomerSale(null) },
       React.createElement('div', { className: 'modal', style: { maxWidth: 360 }, onClick: e => e.stopPropagation() },
         React.createElement('div', { className: 'modal-header' },
@@ -4579,8 +4632,12 @@ function ReportsPage() {
   const thisMonth = sales.filter(s => toDate(s.createdAt) >= monthStart);
   const prevMonth = sales.filter(s => { const d = toDate(s.createdAt); return d >= prevMonthStart && d <= prevMonthEnd; });
   const todaySales = sales.filter(s => toDate(s.createdAt) >= today);
-  const todayCashSales = todaySales.filter(s => !s.isCredit);
   const todayCreditSales = todaySales.filter(s => s.isCredit);
+  const todayCashSales = sales.filter(s => {
+    if (s.isCredit) return false;
+    if (s.creditCollectedAt) return toDate(s.creditCollectedAt) >= today;
+    return toDate(s.createdAt) >= today;
+  });
   const todayReturns = (returns || []).filter(r => toDate(r.createdAt) >= today);
   const thisMonthReturns = (returns || []).filter(r => toDate(r.createdAt) >= monthStart);
 

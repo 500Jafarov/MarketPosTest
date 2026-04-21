@@ -105,6 +105,10 @@ async function fbUpdateSaleCustomer(saleId, customerName, customerPhone) {
   return fbDB.doc('sales/' + saleId).set(data, { merge: true });
 }
 
+async function fbCollectCredit(saleId, collectedAt) {
+  return fbDB.doc('sales/' + saleId).set({ isCredit: false, creditCollectedAt: collectedAt, updatedAt: TS() }, { merge: true });
+}
+
 // İadeler
 
 function fbStreamReturns(onData, onError) {
