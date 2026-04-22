@@ -1872,6 +1872,7 @@ function Sidebar({ activePage, setPage, setShowEOD, sidebarOpen }) {
       navItem('dashboard', '📊', 'Lövhə', null, true),
       navItem('pos', '🛒', 'Satış et'),
       navItem('sales', '📋', 'Satış Tarixçəsi', null, true),
+      navItem('credits', '🔴', 'Borclar', sales.filter(s=>s.isCredit).length || null),
       navItem('returns', '↩️', 'Geri Qaytarmalar', null, true),
       React.createElement('div', { className: 'nav-section-label' }, 'İdarəetmə'),
       navItem('products', '📦', 'Məhsullar', null, true),
@@ -5050,6 +5051,133 @@ function ReportsPage() {
 }
 
 // ============================================================
+// CREDITS PAGE — Borclar
+// ============================================================
+function CreditsPage() {
+  const { sales, settings, addToast, collectCredit } = useApp();
+  const [search, setSearch] = useState('');
+  const [collectSale, setCollectSale] = useState(null);
+  const cur = settings.currency || '₼';
+
+  const creditSales = sales
+    .filter(s => s.isCredit)
+    .filter(s => {
+      const q = search.toLowerCase();
+      return !q ||
+        s.receiptNo.toLowerCase().includes(q) ||
+        (s.customerName || '').toLowerCase().includes(q) ||
+        (s.customerPhone || '').includes(q) ||
+        (s.cashierName || '').toLowerCase().includes(q);
+    })
+    .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+  const totalDebt = creditSales.reduce((s, x) => s + x.total, 0);
+
+  return React.createElement('div', null,
+    React.createElement('div', { className: 'page-header' },
+      React.createElement('div', null,
+        React.createElement('h1', { className: 'page-title' }, '🔴 Borclar'),
+        React.createElement('p', { className: 'page-subtitle' }, creditSales.length + ' ödənilməmiş borc')
+      )
+    ),
+    React.createElement('div', { className: 'page-body' },
+
+      // Yekun kart
+      React.createElement('div', { className: 'stats-grid', style: { gridTemplateColumns: 'repeat(2,1fr)', marginBottom: 16 } },
+        statCard('Ümumi Borc', fmt.currency(totalDebt, cur), creditSales.length + ' satış', '🔴', creditSales.length > 0 ? '' : 'green'),
+        statCard('Borc Sayı', creditSales.length + ' əməliyyat', totalDebt > 0 ? 'Ödənilməmiş' : 'Borc yoxdur', '📋', creditSales.length > 0 ? '' : 'green')
+      ),
+
+      // Axtarış
+      React.createElement('div', { className: 'filter-row', style: { marginBottom: 12 } },
+        React.createElement('div', { className: 'search-bar', style: { flex: 1 } },
+          React.createElement('span', { className: 'search-icon' }, '🔍'),
+          React.createElement('input', { value: search, onChange: e => setSearch(e.target.value), placeholder: 'Fiş no, müştəri, kasiyer...' })
+        )
+      ),
+
+      creditSales.length === 0
+        ? React.createElement('div', { style: { textAlign: 'center', padding: '60px 20px', color: 'var(--text3)' } },
+            React.createElement('div', { style: { fontSize: 48, marginBottom: 12 } }, '✅'),
+            React.createElement('div', { style: { fontSize: 16, fontWeight: 600 } }, 'Heç bir ödənilməmiş borc yoxdur'),
+            React.createElement('div', { style: { fontSize: 13, marginTop: 6 } }, 'Bütün borclar alınıb')
+          )
+        : React.createElement('div', { className: 'card', style: { overflow: 'hidden' } },
+            React.createElement('table', { className: 'data-table' },
+              React.createElement('thead', null,
+                React.createElement('tr', null,
+                  React.createElement('th', null, 'QƏbz №'),
+                  React.createElement('th', null, 'TARİX'),
+                  React.createElement('th', null, 'MÜŞTƏRİ'),
+                  React.createElement('th', null, 'KASİYER'),
+                  React.createElement('th', null, 'MƏBLƏĞ'),
+                  React.createElement('th', null, 'ƏMƏLİYYAT')
+                )
+              ),
+              React.createElement('tbody', null,
+                creditSales.map(s =>
+                  React.createElement('tr', { key: s.id },
+                    React.createElement('td', { className: 'fw-mono', style: { fontSize: 12 } }, s.receiptNo),
+                    React.createElement('td', { style: { fontSize: 12, color: 'var(--text3)' } }, fmt.datetime(s.createdAt)),
+                    React.createElement('td', { style: { fontSize: 13 } },
+                      s.customerName
+                        ? React.createElement('div', null,
+                            React.createElement('div', null, s.customerName),
+                            s.customerPhone && React.createElement('div', { style: { fontSize: 11, color: 'var(--text3)', fontFamily: 'var(--mono)' } }, s.customerPhone)
+                          )
+                        : React.createElement('span', { style: { color: 'var(--text3)' } }, '—')
+                    ),
+                    React.createElement('td', { style: { fontSize: 13 } }, s.cashierName),
+                    React.createElement('td', { className: 'fw-mono fw-bold', style: { color: '#dc2626', fontSize: 15 } }, fmt.currency(s.total, cur)),
+                    React.createElement('td', null,
+                      React.createElement('button', {
+                        className: 'btn btn-sm',
+                        style: { background: 'rgba(34,197,94,0.15)', color: '#22c55e', border: '1px solid rgba(34,197,94,0.3)', fontWeight: 600 },
+                        onClick: () => setCollectSale(s)
+                      }, '💚 Borcu Al')
+                    )
+                  )
+                )
+              )
+            )
+          ),
+
+      // Təsdiq modalı
+      collectSale && React.createElement('div', { className: 'modal-overlay show', onClick: () => setCollectSale(null) },
+        React.createElement('div', { className: 'modal', style: { maxWidth: 380 }, onClick: e => e.stopPropagation() },
+          React.createElement('div', { className: 'modal-header' },
+            React.createElement('span', { className: 'modal-title' }, '💚 Borcu Al'),
+            React.createElement('button', { className: 'btn btn-ghost btn-icon', onClick: () => setCollectSale(null) }, '✕')
+          ),
+          React.createElement('div', { className: 'modal-body' },
+            React.createElement('div', { style: { fontSize: 13, color: 'var(--text2)', marginBottom: 8 } }, 'Qəbz №: ', React.createElement('strong', null, collectSale.receiptNo)),
+            collectSale.customerName && React.createElement('div', { style: { fontSize: 13, color: 'var(--text2)', marginBottom: 8 } }, 'Müştəri: ', React.createElement('strong', null, collectSale.customerName)),
+            React.createElement('div', { style: { fontSize: 22, fontWeight: 700, color: '#22c55e', marginBottom: 12 } }, fmt.currency(collectSale.total, cur)),
+            React.createElement('div', { style: { fontSize: 13, color: 'var(--text3)', background: 'var(--bg3)', borderRadius: 8, padding: '10px 14px' } },
+              '✅ Təsdiq etdikdən sonra bu satış bugünün (',
+              React.createElement('strong', null, fmt.date(new Date())),
+              ') dövriyyəsinə əlavə olunacaq.'
+            )
+          ),
+          React.createElement('div', { className: 'modal-footer' },
+            React.createElement('button', { className: 'btn btn-secondary', onClick: () => setCollectSale(null) }, 'Ləğv et'),
+            React.createElement('button', {
+              className: 'btn btn-primary',
+              style: { background: '#22c55e', color: '#000' },
+              onClick: () => {
+                collectCredit(collectSale.id);
+                addToast('Borc alındı! Dövriyyəyə əlavə edildi.', 'success');
+                setCollectSale(null);
+              }
+            }, '✓ Bəli, Borcu Aldım')
+          )
+        )
+      )
+    )
+  );
+}
+
+// ============================================================
 // CATEGORIES PAGE
 // ============================================================
 function CategoriesPage() {
@@ -5920,6 +6048,7 @@ function AppShell() {
     dashboard: isAdmin ? React.createElement(Dashboard, { setPage: navigate }) : React.createElement(POSPage),
     pos: React.createElement(POSPage),
     sales: React.createElement(SalesPage),
+    credits: React.createElement(CreditsPage),
     products: isAdmin ? React.createElement(ProductsPage) : React.createElement(POSPage),
     inventory: isAdmin ? React.createElement(InventoryPage) : React.createElement(POSPage),
     warehouse: isAdmin ? React.createElement(WarehousePage) : React.createElement(POSPage),
