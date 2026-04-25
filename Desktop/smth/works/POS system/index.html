@@ -4422,7 +4422,8 @@ function TransferPage() {
   const activeProducts = products.filter(p => p.active);
   const filtered = activeProducts.filter(p => {
     const q = search.toLowerCase();
-    return (!q || p.name.toLowerCase().includes(q) || p.sku.toLowerCase().includes(q))
+    return p[stockKey] !== undefined  // yalnız seçilmiş anbara aid məhsullar
+      && (!q || p.name.toLowerCase().includes(q) || p.sku.toLowerCase().includes(q))
       && (!filterCat || p.categoryId === filterCat);
   });
 
@@ -4467,16 +4468,17 @@ function TransferPage() {
       ),
 
       activeTab === 'new' && React.createElement('div', { className: 'transfer-layout', style: { display: 'flex', gap: 16 } },
-        // Anbar secimi
-        warehouses.length > 1 && React.createElement('div', { style: { display: 'flex', gap: 8, marginBottom: 12 } },
-          warehouses.map((wh, idx) => React.createElement('button', {
-            key: wh.id,
-            className: 'btn btn-sm ' + (activeWhIdx === idx ? 'btn-primary' : 'btn-secondary'),
-            onClick: () => setActiveWhIdx(idx)
-          }, (activeWhIdx === idx ? '✓ ' : '') + wh.name))
-        ),
         // Product selection
         React.createElement('div', { style: { flex: 1, minWidth: 0 } },
+          // Anbar seçimi — məhsul siyahısının üstündə
+          warehouses.length > 1 && React.createElement('div', { style: { display: 'flex', gap: 8, marginBottom: 12 } },
+            React.createElement('span', { style: { fontSize: 13, color: 'var(--text2)', alignSelf: 'center', marginRight: 4 } }, '🏭 Anbar:'),
+            warehouses.map((wh, idx) => React.createElement('button', {
+              key: wh.id,
+              className: 'btn btn-sm ' + (activeWhIdx === idx ? 'btn-primary' : 'btn-secondary'),
+              onClick: () => { setActiveWhIdx(idx); setCart({}); }
+            }, (activeWhIdx === idx ? '✓ ' : '') + wh.name))
+          ),
           React.createElement('div', { className: 'filter-row' },
             React.createElement('div', { className: 'search-bar', style: { flex: 1 } },
               React.createElement('span', { className: 'search-icon' }, '🔍'),
