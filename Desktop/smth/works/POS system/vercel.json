@@ -1,15 +1,13 @@
 {
-  "version": 2,
-  "builds": [
-    { "src": "index.html", "use": "@vercel/static" },
-    { "src": "firebase/**", "use": "@vercel/static" },
-    { "src": "icons/**", "use": "@vercel/static" },
-    { "src": "sw.js", "use": "@vercel/static" },
-    { "src": "manifest.json", "use": "@vercel/static" }
-  ],
+  "outputDirectory": ".",
+  "buildCommand": "",
+  "installCommand": "",
+  "framework": null,
   "routes": [
-    { "src": "/", "dest": "/index.html" },
     { "src": "/firebase/(.*)", "dest": "/firebase/$1" },
-    { "src": "/icons/(.*)", "dest": "/icons/$1" }
+    { "src": "/icons/(.*)", "dest": "/icons/$1" },
+    { "src": "/sw.js", "dest": "/sw.js" },
+    { "src": "/manifest.json", "dest": "/manifest.json" },
+    { "src": "/(.*)", "dest": "/index.html" }
   ]
 }
