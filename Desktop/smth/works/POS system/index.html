@@ -3580,10 +3580,6 @@ function ProductModal({ product, categories, settings, onSave, onClose }) {
   const warehouses = (settings && settings.warehouses && settings.warehouses.length > 0)
     ? settings.warehouses
     : [{ id: 'wh1', name: 'Anbar 1' }];
-  const [selectedWhIdx, setSelectedWhIdx] = useState(0);
-  const getStockKey = (idx) => idx === 0 ? 'warehouseStock' : 'warehouse' + (idx + 1) + 'Stock';
-  const stockKey = getStockKey(selectedWhIdx);
-  
   const [form, setForm] = useState(product || {
     name: '', sku: '', barcode: '', categoryId: '', brand: '',
     purchasePrice: '', retailPrice: '', wholesalePrice: '',
@@ -3631,7 +3627,6 @@ function ProductModal({ product, categories, settings, onSave, onClose }) {
 
   const handleSubmit = () => {
     if (!validate()) return;
-    // form-dan bütün anbar stok sahələrini çıxar
     const { warehouseStock, warehouse2Stock, warehouse3Stock, warehouse4Stock, warehouse5Stock, minWarehouseStock, ...baseForm } = form;
     const saved = {
       ...baseForm,
@@ -3641,16 +3636,17 @@ function ProductModal({ product, categories, settings, onSave, onClose }) {
       stock: +form.stock || 0,
       minStock: +form.minStock || 10,
       minWarehouseStock: +form.minWarehouseStock || 0,
-      // Yalnız seçilmiş anbarın stokunu yaz
-      [stockKey]: +form[stockKey] || 0,
     };
-    // Mövcud məhsul redaktəsindəki digər anbar stoklarını qoru
-    if (product) {
-      warehouses.forEach((wh, idx) => {
-        const k = idx === 0 ? 'warehouseStock' : 'warehouse' + (idx + 1) + 'Stock';
-        if (k !== stockKey && product[k] !== undefined) saved[k] = product[k];
-      });
-    }
+    // Hər anbarın stokunu form-dan oxu — doldurulmuşsa yaz, boşdursa mövcud dəyəri qoru
+    warehouses.forEach((wh, idx) => {
+      const k = idx === 0 ? 'warehouseStock' : 'warehouse' + (idx + 1) + 'Stock';
+      const formVal = form[k];
+      if (formVal !== '' && formVal !== undefined && formVal !== null) {
+        saved[k] = +formVal || 0;
+      } else if (product && product[k] !== undefined) {
+        saved[k] = product[k]; // redaktədə boş buraxılmışsa köhnəni saxla
+      }
+    });
     onSave(saved);
   };
 
@@ -3782,19 +3778,16 @@ function ProductModal({ product, categories, settings, onSave, onClose }) {
                   )
                 )
               ),
-              // Secilmis anbar only
-              React.createElement('div', { style: { background: 'var(--blue-dim)', border: '1px solid rgba(59,130,246,0.2)', borderRadius: 8, padding: '10px 12px' } },
-                React.createElement('div', { style: { fontSize: 11, fontWeight: 700, color: 'var(--blue)', fontFamily: 'var(--mono)', marginBottom: 6 } }, '🏭 ' + warehouses[selectedWhIdx].name),
-                warehouses.length > 1 && React.createElement('div', { style: { display: 'flex', gap: 4, marginBottom: 6, flexWrap: 'wrap' } },
-                  warehouses.map((wh, idx) => React.createElement('button', {
-                    key: wh.id,
-                    type: 'button',
-                    className: 'btn btn-sm ' + (selectedWhIdx === idx ? 'btn-primary' : 'btn-secondary'),
-                    onClick: () => setSelectedWhIdx(idx),
-                    style: { padding: '3px 8px', fontSize: 11 }
-                  }, (selectedWhIdx === idx ? '✓ ' : '') + wh.name))
-                ),
-                React.createElement('input', { className: 'form-control', type: 'number', min: 0, value: form[stockKey] || '', onChange: e => set(stockKey, e.target.value), placeholder: '0' })
+              // Hər anbar üçün ayrı stok inputu
+              React.createElement('div', { style: { background: 'var(--blue-dim)', border: '1px solid rgba(59,130,246,0.2)', borderRadius: 8, padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 8 } },
+                React.createElement('div', { style: { fontSize: 11, fontWeight: 700, color: 'var(--blue)', fontFamily: 'var(--mono)', marginBottom: 2 } }, '🏭 Anbar Stokları'),
+                warehouses.map((wh, idx) => {
+                  const k = idx === 0 ? 'warehouseStock' : 'warehouse' + (idx + 1) + 'Stock';
+                  return React.createElement('div', { key: wh.id, style: { display: 'flex', alignItems: 'center', gap: 8 } },
+                    React.createElement('span', { style: { fontSize: 12, color: 'var(--text2)', minWidth: 70, fontWeight: 600 } }, wh.name + ':'),
+                    React.createElement('input', { className: 'form-control', type: 'number', min: 0, value: form[k] || '', onChange: e => set(k, e.target.value), placeholder: '0', style: { maxWidth: 100 } })
+                  );
+                })
               )
             ),
             // Birim
