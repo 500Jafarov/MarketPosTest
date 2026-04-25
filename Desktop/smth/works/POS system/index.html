@@ -5468,20 +5468,20 @@ function SettingsPage() {
             }
             return '';
           };
-          const catName = String(get('kateqoriya','kategori','category','cat','qrup','group') || '').trim();
+          const catName = String(get('kateqoriya','kategori','category','cat','qrup','group','məhsulunnövü','növü') || '').trim();
           return {
             id: 'xls_' + Date.now() + '_' + idx,
             name:           String(get('ad','name','məhsul','mehsul','product') || '').trim(),
             sku:            String(get('sku','kod','code','artikul') || '').trim(),
-            barcode:        String(get('barcode','barkod','ştrihkod') || '').trim(),
+            barcode:        String(get('barcode','barkod','ştrixkod','ştrihkod','barkod') || '').trim(),
             categoryId:     getCatId(catName),
-            brand:          String(get('brand','marka','brend') || '').trim(),
-            purchasePrice:  parseFloat(get('alışqiyməti','alış','purchaseprice','costprice','maya') || 0) || 0,
-            retailPrice:    parseFloat(get('satışqiyməti','satış','retailprice','price','qiymət') || 0) || 0,
-            wholesalePrice: parseFloat(get('topalanqiymət','toptan','wholesaleprice') || 0) || 0,
-            stock:          parseInt(get('stok','anbar','stock','quantity','miqdar','say') || 0, 10) || 0,
+            brand:          String(get('brand','marka','brend','istehsalçı') || '').trim(),
+            purchasePrice:  parseFloat(get('alışqiyməti','alış','purchaseprice','costprice','maya','sonmayadəyəri','mayadəyəri') || 0) || 0,
+            retailPrice:    parseFloat(get('satışqiyməti','satış','retailprice','price','qiymət','kassasatış','kassasatiş','pərakəndə') || 0) || 0,
+            wholesalePrice: parseFloat(get('topalanqiymət','toptan','wholesaleprice','topdansatış','topdansatis') || 0) || 0,
+            stock:          parseInt(get('stok','anbar','stock','quantity','miqdar','say','qalanmiqdar','qalan') || 0, 10) || 0,
             warehouseStock: parseInt(get('anbarstok','warehousestock','depo') || 0, 10) || 0,
-            minStock:       parseInt(get('minstok','minstock','minimum') || 5, 10) || 5,
+            minStock:       parseInt(get('minstok','minstock','minimum','minimalehtiyat') || 5, 10) || 5,
             minWarehouseStock: 0,
             unit:           String(get('vahid','unit','ölçü') || 'adet').trim(),
             description:    String(get('açıqlama','description','qeyd','note') || '').trim(),
