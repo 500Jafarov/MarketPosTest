@@ -1326,6 +1326,8 @@ const SEED_SETTINGS = {
   emailjsTemplateId: '',
   emailjsPublicKey: '',
   reportEmail: '',
+  labelWidthMm: 30,
+  labelHeightMm: 22,
 };
 
 // Generate sample sales
@@ -3201,10 +3203,12 @@ function ProductsPage() {
 
 
 // ============================================================
-// LABEL PRINT MODAL — 30x22mm barkod etiketi
+// LABEL PRINT MODAL — ölçü settings-dən oxunur
 // ============================================================
 function LabelPrintModal({ product, settings, onClose }) {
   const cur = settings.currency || '₼';
+  const lw = +(settings.labelWidthMm  || 30);
+  const lh = +(settings.labelHeightMm || 22);
   const [qty, setQty] = useState(1);
   const [showPrice, setShowPrice] = useState(true);
   const [showName, setShowName] = useState(true);
@@ -3238,7 +3242,6 @@ function LabelPrintModal({ product, settings, onClose }) {
   }, [barcode, isValidBarcode]);
 
   const buildLabelHTML = () => {
-    // 30x22mm at 96dpi ≈ 113x83px; use larger for quality then scale
     const barcodeImg = isValidBarcode ? BarcodeUtil.toBase64(barcode, {
       format: barcode.length === 13 ? 'EAN13' : barcode.length === 8 ? 'EAN8' : 'CODE128',
       width: 2, height: 48, displayValue: true, fontSize: 16, textMargin: 3, margin: 2
@@ -3254,11 +3257,11 @@ function LabelPrintModal({ product, settings, onClose }) {
     `).join('');
 
     return '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Etiket</title><style>' +
-      '@page { size: 30mm 22mm; margin: 0; }' +
+      '@page { size: ' + lw + 'mm ' + lh + 'mm; margin: 0; }' +
       '* { box-sizing: border-box; margin: 0; padding: 0; }' +
       'body { background: #fff; }' +
       '.label {' +
-        'width: 30mm; height: 22mm;' +
+        'width: ' + lw + 'mm; height: ' + lh + 'mm;' +
         'display: flex; flex-direction: column;' +
         'align-items: center; justify-content: center;' +
         'padding: 1mm 1.5mm;' +
@@ -3266,8 +3269,8 @@ function LabelPrintModal({ product, settings, onClose }) {
         'overflow: hidden;' +
       '}' +
       '.store { font-size: 6pt; font-weight: bold; color: #333; margin-bottom: 0.5mm; text-align: center; font-family: Arial, sans-serif; }' +
-      '.pname { font-size: 7pt; font-weight: bold; color: #000; margin-bottom: 0.5mm; text-align: center; font-family: Arial, sans-serif; max-width: 28mm; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }' +
-      '.barcode { width: 28mm; height: auto; display: block; }' +
+      '.pname { font-size: 7pt; font-weight: bold; color: #000; margin-bottom: 0.5mm; text-align: center; font-family: Arial, sans-serif; max-width: ' + (lw-2) + 'mm; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }' +
+      '.barcode { width: ' + (lw-2) + 'mm; height: auto; display: block; }' +
       '.no-barcode { font-size: 7pt; color: #999; text-align: center; margin: 2mm 0; }' +
       '.price { font-size: 10pt; font-weight: bold; color: #000; margin-top: 0.5mm; font-family: Arial, sans-serif; }' +
       '</style></head><body>' + labels + '</body></html>';
@@ -3281,7 +3284,7 @@ function LabelPrintModal({ product, settings, onClose }) {
     setTimeout(() => { win.focus(); win.print(); setTimeout(() => win.close(), 1000); }, 600);
   };
 
-  return React.createElement(Modal, { show: true, onClose, title: '🏷️ Barkod Etiketi Çap et — 30x22mm' },
+  return React.createElement(Modal, { show: true, onClose, title: '🏷️ Barkod Etiketi Çap et — ' + lw + 'x' + lh + 'mm' },
     React.createElement('div', { className: 'modal-body' },
 
       // Barkod durumu
@@ -3295,11 +3298,11 @@ function LabelPrintModal({ product, settings, onClose }) {
       // Etiket önizlemesi
       React.createElement('div', { style: { display: 'flex', gap: 20, alignItems: 'flex-start', flexWrap: 'wrap' } },
 
-        // Önizleme kutusu — gerçek boyut 30x22mm
+        // Önizleme kutusu — gerçek boyut settings-dən
         React.createElement('div', { style: { flexShrink: 0 } },
-          React.createElement('div', { className: 'form-label' }, 'Önizləmə (real ölçü)'),
+          React.createElement('div', { className: 'form-label' }, 'Önizləmə (' + lw + 'x' + lh + 'mm)'),
           React.createElement('div', { style: {
-            width: 114, height: 83, // 30mm x 22mm @ 96dpi
+            width: Math.round(lw * 3.78), height: Math.round(lh * 3.78), // mm → px @ 96dpi
             border: '2px dashed var(--border2)',
             borderRadius: 4,
             background: '#fff',
@@ -5644,6 +5647,21 @@ function SettingsPage() {
             React.createElement('div', { className: 'form-group' },
               React.createElement('label', { className: 'form-label' }, 'Varsayılan Min. Stok Eşiği'),
               React.createElement('input', { className: 'form-control', type: 'number', min: 0, value: form.lowStockThreshold || 10, onChange: e => set('lowStockThreshold', +e.target.value) })
+            )
+          )
+        ),
+
+        // ── BARKOD ETİKET ÖLÇÜİ ────────────────────────
+        React.createElement('div', { className: 'card', style: { marginBottom: 16 } },
+          React.createElement('div', { className: 'card-header' }, React.createElement('span', { className: 'card-title' }, '🏷️ Barkod Etiket Ölçüsü')),
+          React.createElement('div', { className: 'form-grid-2' },
+            React.createElement('div', { className: 'form-group' },
+              React.createElement('label', { className: 'form-label' }, 'Eni (mm)'),
+              React.createElement('input', { className: 'form-control', type: 'number', min: 10, max: 200, value: form.labelWidthMm || 30, onChange: e => set('labelWidthMm', +e.target.value) })
+            ),
+            React.createElement('div', { className: 'form-group' },
+              React.createElement('label', { className: 'form-label' }, 'Uzunu (mm)'),
+              React.createElement('input', { className: 'form-control', type: 'number', min: 10, max: 200, value: form.labelHeightMm || 22, onChange: e => set('labelHeightMm', +e.target.value) })
             )
           )
         ),
