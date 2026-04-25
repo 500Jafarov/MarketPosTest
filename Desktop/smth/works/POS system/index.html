@@ -4312,7 +4312,7 @@ function WarehousePage() {
         }, '🏭 ' + wh.name))
       ),
       React.createElement('div', { className: 'stats-grid', style: { gridTemplateColumns: 'repeat(3,1fr)' } },
-        statCard(warehouses[activeWhIdx]?.name + ' Ümumi Stok', totalWarehouse + ' ədəd', products.length + ' məhsul', '🏭', 'blue'),
+        statCard(warehouses[activeWhIdx]?.name + ' Ümumi Stok', totalWarehouse + ' ədəd', whProducts.length + ' məhsul', '🏭', 'blue'),
         statCard('Aşağı Stok', lowCount + ' məhsul', 'Diqqət lazımdır', '⚠️', ''),
         statCard('Tükənmiş', outCount + ' məhsul', 'Alış lazımdır', '❌', '')
       ),
