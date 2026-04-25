@@ -2835,10 +2835,27 @@ function ReceiptModal({ sale, onClose, settings }) {
   const buildPrintHTML = () => {
     const c = cur;
     const rows = (label, val) => `<div class="row"><span>${label}</span><span>${val}</span></div>`;
-    const itemsHTML = sale.items.map(item => `
-      <div class="item-name">${item.productName}</div>
-      <div class="row muted"><span>&nbsp;&nbsp;${item.qty} ədəd &times; ${fmt.currency(item.price, c)}</span><span class="item-total">${fmt.currency(item.lineTotal, c)}</span></div>
-    `).join('');
+    const itemsHTML = `
+      <table class="items-table">
+        <thead>
+          <tr>
+            <th class="col-name">Məhsulun adı</th>
+            <th class="col-num">Miqdarı</th>
+            <th class="col-num">Qiymət</th>
+            <th class="col-num">Məbləğ</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${sale.items.map(item => `
+          <tr>
+            <td class="col-name">${item.productName}</td>
+            <td class="col-num">${item.qty}</td>
+            <td class="col-num">${fmt.currency(item.price, c)}</td>
+            <td class="col-num">${fmt.currency(item.lineTotal, c)}</td>
+          </tr>`).join('')}
+        </tbody>
+      </table>
+    `;
     const discountRow = sale.discount > 0 ? rows('Endirim:', '&minus;' + fmt.currency(sale.discount, c)) : '';
     const cashRows = sale.cashReceived != null
       ? rows('Alınan məbləğ:', fmt.currency(sale.cashReceived, c)) +
@@ -2877,13 +2894,18 @@ function ReceiptModal({ sale, onClose, settings }) {
   .solid { border-top: 2px solid #000; margin: 6px 0; }
   .row { display: flex; justify-content: space-between; align-items: baseline; margin: 3px 0; font-size: 13px; }
   .muted { color: #222; }
-  .item-name { font-weight: 700; font-size: 14px; margin-top: 6px; }
-  .item-total { font-weight: bold; }
   .total-row { display: flex; justify-content: space-between; font-size: 18px; font-weight: bold; margin: 5px 0; }
   .total-row span:last-child { font-size: 19px; }
   .badge { display: inline-block; border: 1px solid #888; border-radius: 3px; padding: 0 5px; font-size: 12px; }
   .footer { text-align: center; font-size: 12px; color: #444; margin-top: 5px; line-height: 1.6; }
   .spacer { height: 16px; }
+  .items-table { width: 100%; border-collapse: collapse; font-size: 12px; margin: 4px 0; }
+  .items-table thead tr { border-bottom: 1px solid #000; }
+  .items-table th { font-weight: bold; padding: 2px 2px 3px; font-size: 12px; }
+  .items-table td { padding: 3px 2px; vertical-align: top; border-bottom: 1px dashed #ccc; }
+  .items-table tr:last-child td { border-bottom: none; }
+  .col-name { text-align: left; width: 52%; }
+  .col-num { text-align: right; width: 16%; }
 </style>
 </head>
 <body>
@@ -3001,12 +3023,23 @@ function ReceiptModal({ sale, onClose, settings }) {
         sale.customerName && React.createElement('div', { className: 'receipt-row' }, React.createElement('span', null, 'Müştəri:'), React.createElement('span', null, sale.customerName)),
         sale.customerPhone && React.createElement('div', { className: 'receipt-row' }, React.createElement('span', null, 'Telefon:'), React.createElement('span', null, sale.customerPhone)),
         React.createElement('div', { className: 'receipt-divider' }),
-        sale.items.map((item, i) =>
-          React.createElement('div', { key: i },
-            React.createElement('div', null, item.productName + (item.manualPrice ? ' ✏' : '')),
-            React.createElement('div', { className: 'receipt-row' },
-              React.createElement('span', null, `  ${item.qty} x ${fmt.currency(item.price, cur)}` + (item.manualPrice ? ` (Xüsusi)` : '')),
-              React.createElement('span', null, fmt.currency(item.lineTotal, cur))
+        React.createElement('table', { style: { width: '100%', borderCollapse: 'collapse', fontSize: 12, marginBottom: 4 } },
+          React.createElement('thead', null,
+            React.createElement('tr', { style: { borderBottom: '1px solid #555' } },
+              React.createElement('th', { style: { textAlign: 'left', padding: '2px 2px 4px', fontFamily: 'monospace' } }, 'Məhsulun adı'),
+              React.createElement('th', { style: { textAlign: 'right', padding: '2px 2px 4px', fontFamily: 'monospace' } }, 'Miqdar'),
+              React.createElement('th', { style: { textAlign: 'right', padding: '2px 2px 4px', fontFamily: 'monospace' } }, 'Qiymət'),
+              React.createElement('th', { style: { textAlign: 'right', padding: '2px 2px 4px', fontFamily: 'monospace' } }, 'Məbləğ')
+            )
+          ),
+          React.createElement('tbody', null,
+            sale.items.map((item, i) =>
+              React.createElement('tr', { key: i, style: { borderBottom: '1px dashed #ccc' } },
+                React.createElement('td', { style: { padding: '3px 2px', fontFamily: 'monospace', fontSize: 12 } }, item.productName + (item.manualPrice ? ' ✏' : '')),
+                React.createElement('td', { style: { textAlign: 'right', padding: '3px 2px', fontFamily: 'monospace' } }, item.qty),
+                React.createElement('td', { style: { textAlign: 'right', padding: '3px 2px', fontFamily: 'monospace' } }, fmt.currency(item.price, cur)),
+                React.createElement('td', { style: { textAlign: 'right', padding: '3px 2px', fontFamily: 'monospace', fontWeight: 700 } }, fmt.currency(item.lineTotal, cur))
+              )
             )
           )
         ),
