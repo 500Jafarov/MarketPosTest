@@ -2853,9 +2853,10 @@ const QZPrinter = {
     data += BOLD_ON + center('SATIS QEBZI') + BOLD_OFF;
     data += DASHED + ALIGN_L;
     data += padLR('Qebz No:', sale.receiptNo);
-    const _sd = (function(v){ if(!v) return new Date(); if(v.seconds!=null) return new Date(v.seconds*1000); const d=new Date(v); return isNaN(d)?new Date():d; })(sale.createdAt);
-    data += padLR('Tarix:', _sd.toLocaleDateString('az-AZ'));
-    data += padLR('Saat:', _sd.toLocaleTimeString('az-AZ'));
+    const _sd = (function(v){ if(!v) return new Date(); if(v&&v.seconds!=null) return new Date(v.seconds*1000); const d=new Date(v); return isNaN(d.getTime())?new Date():d; })(sale.createdAt);
+    const _p2 = (n) => String(n).padStart(2,'0');
+    data += padLR('Tarix:', `${_sd.getFullYear()}-${_p2(_sd.getMonth()+1)}-${_p2(_sd.getDate())}`);
+    data += padLR('Saat:', `${_p2(_sd.getHours())}:${_p2(_sd.getMinutes())}:${_p2(_sd.getSeconds())}`);
     data += padLR('Nov:', sale.type === 'retail' ? 'Pərakəndə' : 'Topdansatış');
     data += padLR('Kassir:', sale.cashierName);
     if (sale.customerName)  data += padLR('Mustəri:', t(sale.customerName));
@@ -2909,16 +2910,18 @@ function ReceiptModal({ sale, onClose, settings }) {
 
   const buildPrintHTML = () => {
     const c = cur;
-    // Firestore Timestamp və ya ISO string-i düzgün Date-ə çevir
     const parseDate = (v) => {
       if (!v) return new Date();
-      if (v.seconds != null) return new Date(v.seconds * 1000);
+      if (v && v.seconds != null) return new Date(v.seconds * 1000);
       const d = new Date(v);
-      return isNaN(d) ? new Date() : d;
+      return isNaN(d.getTime()) ? new Date() : d;
     };
+    const pad = (n) => String(n).padStart(2, '0');
+    const fmtDate = (d) => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+    const fmtTime = (d) => `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
     const saleDate = parseDate(sale.createdAt);
-    const saleDateStr = saleDate.toLocaleDateString('az-AZ');
-    const saleTimeStr = saleDate.toLocaleTimeString('az-AZ');
+    const saleDateStr = fmtDate(saleDate);
+    const saleTimeStr = fmtTime(saleDate);
     const rows = (label, val) => `<div class="row"><span>${label}</span><span>${val}</span></div>`;
     const itemsHTML = `
       <table class="items-table">
@@ -3064,8 +3067,9 @@ function ReceiptModal({ sale, onClose, settings }) {
     center('SATIS QEBZI', y); y += 5;
     doc.setFont('helvetica', 'normal'); doc.setFontSize(8);
     doc.text('Qebz No: ' + sale.receiptNo, 5, y); y += 4;
-    const _pdfD = (function(v){ if(!v) return new Date(); if(v.seconds!=null) return new Date(v.seconds*1000); const d=new Date(v); return isNaN(d)?new Date():d; })(sale.createdAt);
-    doc.text('Tarix: ' + _pdfD.toLocaleString('az-AZ'), 5, y); y += 4;
+    const _pdfD = (function(v){ if(!v) return new Date(); if(v&&v.seconds!=null) return new Date(v.seconds*1000); const d=new Date(v); return isNaN(d.getTime())?new Date():d; })(sale.createdAt);
+    const _p3 = (n) => String(n).padStart(2,'0');
+    doc.text('Tarix: ' + `${_pdfD.getFullYear()}-${_p3(_pdfD.getMonth()+1)}-${_p3(_pdfD.getDate())} ${_p3(_pdfD.getHours())}:${_p3(_pdfD.getMinutes())}`, 5, y); y += 4;
     doc.text('Nov: ' + (sale.type === 'retail' ? 'Pərakəndə' : 'Topdansatış'), 5, y); y += 4;
     doc.text('Kassir: ' + sale.cashierName, 5, y); y += 4;
     if (sale.customerName) { doc.text('Müştəri: ' + sale.customerName, 5, y); y += 4; }
