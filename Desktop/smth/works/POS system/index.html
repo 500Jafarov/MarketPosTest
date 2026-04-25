@@ -1329,6 +1329,7 @@ const SEED_SETTINGS = {
   reportEmail: '',
   labelWidthMm: 30,
   labelHeightMm: 22,
+  warehouses: [{ id: 'wh1', name: 'Anbar 1' }],
 };
 
 // Generate sample sales
@@ -1496,7 +1497,17 @@ function AppProvider({ children }) {
   }, []);
 
   // Sales
-  const completeSale = useCallback((cart, saleType, customerName, customerPhone, notes, cashier, discount = 0, cashReceived, isCredit = false) => {
+  const completeSale = useCallback((cart, saleType, customerName, customerPhone, notes, cashier, discount = 0, cashReceived, isCredit = false, warehouseId = 'wh1', warehouseName = 'Anbar 1') => {
+    // warehouseId-dən stok açarını müəyyən et
+    // wh1 → warehouseStock, wh2/wh_xxx → warehouse2Stock, warehouse3Stock...
+    const getStockKey = (whId, allWarehouses) => {
+      if (!allWarehouses || allWarehouses.length === 0) return 'warehouseStock';
+      const idx = allWarehouses.findIndex(w => w.id === whId);
+      if (idx <= 0) return 'warehouseStock';
+      return 'warehouse' + (idx + 1) + 'Stock';
+    };
+    const stockKey = getStockKey(warehouseId, settings.warehouses);
+
     // 1. Stok doğrulama
     for (const item of cart) {
       const p = products.find(x => x.id === item.productId);
@@ -1520,21 +1531,22 @@ function AppProvider({ children }) {
       notes,
       createdAt: new Date().toISOString(),
       isCredit,
+      warehouseId,
+      warehouseName,
       ...(cashReceived != null ? { cashReceived, change: cashReceived - total } : {}),
     };
 
-    // 3. Optimistic: stok düş + satışı hemen geçmişe ekle
+    // 3. Optimistic: kassa stoku düş + seçilmiş anbar stoku düş
     setProducts(prev => prev.map(p => {
       const item = cart.find(c => c.productId === p.id);
       if (!item) return p;
       return {
         ...p,
         stock: p.stock - item.qty,
-        warehouseStock: Math.max(0, (p.warehouseStock || 0) - item.qty),
+        [stockKey]: Math.max(0, (p[stockKey] || 0) - item.qty),
         updatedAt: new Date().toISOString(),
       };
     }));
-    // Satışı anında geçmişe ekle (Firestore stream beklemeden)
     setSales(prev => [sale, ...prev]);
 
     // 4. Müşteri kaydet
@@ -1546,10 +1558,10 @@ function AppProvider({ children }) {
       });
     }
 
-    // 5. Firestore'a atomik batch yaz (warehouseStock da dahil — ayrı update yok, race condition önlendi)
+    // 5. Firestore-a yaz
     const itemsWithWarehouse = cart.map(item => {
       const p = products.find(x => x.id === item.productId);
-      return { ...item, _curWarehouseStock: p?.warehouseStock || 0 };
+      return { ...item, _curWarehouseStock: p?.[stockKey] || 0, _warehouseStockKey: stockKey };
     });
     fbCompleteSale({ ...sale, items: itemsWithWarehouse })
       .catch(err => console.error('[FB] completeSale:', err));
@@ -2147,6 +2159,8 @@ function POSPage() {
   const [cashReceived, setCashReceived] = useState('');
   const [isCredit, setIsCredit] = useState(false);
   const [showPayment, setShowPayment] = useState(false);
+  const warehouses = (settings.warehouses && settings.warehouses.length > 0) ? settings.warehouses : [{ id: 'wh1', name: 'Anbar 1' }];
+  const [selectedWarehouseId, setSelectedWarehouseId] = useState(warehouses[0]?.id || 'wh1');
   const barcodeRef = useRef(null);
   const barcodeBuffer = useRef('');       // accumulates chars from scanner
   const barcodeTimer = useRef(null);      // clears buffer after pause
@@ -2292,9 +2306,11 @@ function POSPage() {
   const cashReceivedNum = parseFloat(cashReceived) || 0;
   const change = cashReceivedNum > 0 ? cashReceivedNum - Math.max(0, total) : null;
 
-  const handleCompleteSale = () => {
+  const handleCompleteSale = (whId) => {
     if (cart.length === 0) { addToast('Səbət boşdur!', 'error'); return; }
-    const result = completeSale(cart, saleType, customerName, customerPhone, notes, currentUser, discount, cashReceivedNum > 0 ? cashReceivedNum : undefined, isCredit);
+    const warehouseId = whId || selectedWarehouseId;
+    const warehouseName = warehouses.find(w => w.id === warehouseId)?.name || 'Anbar 1';
+    const result = completeSale(cart, saleType, customerName, customerPhone, notes, currentUser, discount, cashReceivedNum > 0 ? cashReceivedNum : undefined, isCredit, warehouseId, warehouseName);
     if (!result.ok) { addToast(result.error, 'error'); return; }
     setCompletedSale(result.sale);
     setCart([]);
@@ -2655,11 +2671,14 @@ function POSPage() {
     showPayment && React.createElement(PaymentModal, {
       total: Math.max(0, total),
       cur,
+      warehouses,
+      selectedWarehouseId,
+      onWarehouseChange: setSelectedWarehouseId,
       onCancel: () => setShowPayment(false),
-      onConfirm: (received) => {
+      onConfirm: (received, whId) => {
         setCashReceived(received > 0 ? String(received) : '');
         setShowPayment(false);
-        setTimeout(handleCompleteSale, 0);
+        setTimeout(() => handleCompleteSale(whId), 0);
       }
     })
   );
@@ -2668,9 +2687,11 @@ function POSPage() {
 // ============================================================
 // PAYMENT MODAL — Nağd ödəniş və qaytarılacaq hesablama
 // ============================================================
-function PaymentModal({ total, cur, onCancel, onConfirm }) {
+function PaymentModal({ total, cur, warehouses, selectedWarehouseId, onWarehouseChange, onCancel, onConfirm }) {
   const [received, setReceived] = React.useState('');
   const inputRef = React.useRef(null);
+  const whs = (warehouses && warehouses.length > 0) ? warehouses : [{ id: 'wh1', name: 'Anbar 1' }];
+  const [whId, setWhId] = React.useState(selectedWarehouseId || whs[0]?.id);
 
   React.useEffect(() => { setTimeout(() => inputRef.current?.focus(), 100); }, []);
 
@@ -2686,7 +2707,7 @@ function PaymentModal({ total, cur, onCancel, onConfirm }) {
     Math.ceil(total / 20) * 20,
   ].filter((v, i, a) => v >= total && a.indexOf(v) === i).slice(0, 4);
 
-  const handleKey = (e) => { if (e.key === 'Enter' && isOk) onConfirm(receivedNum); };
+  const handleKey = (e) => { if (e.key === 'Enter' && isOk) onConfirm(receivedNum, whId); };
 
   return React.createElement(Modal, { show: true, onClose: onCancel, title: '💵 Nağd Ödəniş' },
     React.createElement('div', { className: 'modal-body' },
@@ -2696,6 +2717,19 @@ function PaymentModal({ total, cur, onCancel, onConfirm }) {
         React.createElement('div', { style: { fontSize: 13, color: 'var(--text2)', marginBottom: 4 } }, 'Ödəniləcək məbləğ'),
         React.createElement('div', { style: { fontSize: 36, fontWeight: 800, color: 'var(--accent)', letterSpacing: 1 } },
           cur + total.toLocaleString('az-AZ', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+        )
+      ),
+
+      // Anbar seçimi (birdən çox anbar varsa göstər)
+      whs.length > 1 && React.createElement('div', { className: 'form-group', style: { marginBottom: 14 } },
+        React.createElement('label', { className: 'form-label' }, '🏭 Satış hansı anbardandır?'),
+        React.createElement('div', { style: { display: 'flex', gap: 8, flexWrap: 'wrap' } },
+          whs.map(w => React.createElement('button', {
+            key: w.id,
+            className: 'btn ' + (whId === w.id ? 'btn-primary' : 'btn-secondary'),
+            style: { flex: 1, justifyContent: 'center', fontWeight: whId === w.id ? 700 : 400 },
+            onClick: () => { setWhId(w.id); if (onWarehouseChange) onWarehouseChange(w.id); }
+          }, w.name))
         )
       ),
 
@@ -2746,7 +2780,7 @@ function PaymentModal({ total, cur, onCancel, onConfirm }) {
           className: 'btn btn-primary',
           style: { flex: 2, justifyContent: 'center', fontSize: 16, fontWeight: 700, opacity: isOk ? 1 : 0.5 },
           disabled: !isOk,
-          onClick: () => onConfirm(receivedNum)
+          onClick: () => onConfirm(receivedNum, whId)
         }, '✓ Satışı Tamamla')
       ),
 
@@ -2754,7 +2788,7 @@ function PaymentModal({ total, cur, onCancel, onConfirm }) {
       React.createElement('button', {
         className: 'btn',
         style: { width: '100%', justifyContent: 'center', marginTop: 8, fontSize: 12, color: 'var(--text3)' },
-        onClick: () => onConfirm(0)
+        onClick: () => onConfirm(0, whId)
       }, 'Məbləğ daxil etmədən tamamla')
     )
   );
@@ -3329,6 +3363,7 @@ function ProductsPage() {
     showModal && React.createElement(ProductModal, {
       product: editProduct,
       categories,
+      settings,
       onSave: (p) => { saveProduct(p); setShowModal(false); addToast(editProduct ? 'Məhsul yeniləndi.' : 'Məhsul əlavə edildi.', 'success'); },
       onClose: () => setShowModal(false)
     }),
@@ -3510,7 +3545,10 @@ function LabelPrintModal({ product, settings, onClose }) {
   );
 }
 
-function ProductModal({ product, categories, onSave, onClose }) {
+function ProductModal({ product, categories, settings, onSave, onClose }) {
+  const warehouses = (settings && settings.warehouses && settings.warehouses.length > 0)
+    ? settings.warehouses
+    : [{ id: 'wh1', name: 'Anbar 1' }];
   const [form, setForm] = useState(product || {
     name: '', sku: '', barcode: '', categoryId: '', brand: '',
     purchasePrice: '', retailPrice: '', wholesalePrice: '',
@@ -3699,19 +3737,15 @@ function ProductModal({ product, categories, onSave, onClose }) {
                   )
                 )
               ),
-              // Depo stok
-              React.createElement('div', { style: { background: 'var(--blue-dim)', border: '1px solid rgba(59,130,246,0.2)', borderRadius: 8, padding: '10px 12px' } },
-                React.createElement('div', { style: { fontSize: 11, fontWeight: 700, color: 'var(--blue)', fontFamily: 'var(--mono)', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 5 } }, '🏭 Anbar Stoqu'),
-                React.createElement('div', { className: 'form-grid-2' },
-                  React.createElement('div', { className: 'form-group', style: { marginBottom: 0 } },
-                    React.createElement('label', { className: 'form-label' }, 'Mövcud'),
-                    React.createElement('input', { className: 'form-control', type: 'number', min: 0, value: form.warehouseStock || '', onChange: e => set('warehouseStock', e.target.value), placeholder: '0' })
-                  ),
-                  React.createElement('div', { className: 'form-group', style: { marginBottom: 0 } },
-                    React.createElement('label', { className: 'form-label' }, 'Min. Hədd'),
-                    React.createElement('input', { className: 'form-control', type: 'number', min: 0, value: form.minWarehouseStock || '', onChange: e => set('minWarehouseStock', e.target.value), placeholder: '10' })
-                  )
-                )
+              // Dinamik anbarlar
+              React.createElement('div', { style: { display: 'flex', flexDirection: 'column', gap: 8 } },
+                warehouses.map((wh, idx) => {
+                  const stockKey = idx === 0 ? 'warehouseStock' : 'warehouse' + (idx + 1) + 'Stock';
+                  return React.createElement('div', { key: wh.id, style: { background: 'var(--blue-dim)', border: '1px solid rgba(59,130,246,0.2)', borderRadius: 8, padding: '10px 12px' } },
+                    React.createElement('div', { style: { fontSize: 11, fontWeight: 700, color: 'var(--blue)', fontFamily: 'var(--mono)', marginBottom: 6 } }, '🏭 ' + wh.name),
+                    React.createElement('input', { className: 'form-control', type: 'number', min: 0, value: form[stockKey] || '', onChange: e => set(stockKey, e.target.value), placeholder: '0' })
+                  );
+                })
               )
             ),
             // Birim
@@ -4174,11 +4208,18 @@ function WarehousePage() {
   const [editVal, setEditVal] = useState('');
   const cur = settings.currency || '₼';
 
+  const warehouses = (settings.warehouses && settings.warehouses.length > 0)
+    ? settings.warehouses : [{ id: 'wh1', name: 'Anbar 1' }];
+  const [activeWhIdx, setActiveWhIdx] = useState(0);
+
+  const getStockKey = (idx) => idx === 0 ? 'warehouseStock' : 'warehouse' + (idx + 1) + 'Stock';
+  const stockKey = getStockKey(activeWhIdx);
+
   const filtered = products.filter(p => {
     const q = search.toLowerCase();
     const matchS = !q || p.name.toLowerCase().includes(q) || p.sku.toLowerCase().includes(q);
     const matchC = !filterCat || p.categoryId === filterCat;
-    const ws = p.warehouseStock || 0;
+    const ws = p[stockKey] || 0;
     const mws = p.minWarehouseStock || 10;
     const matchF = !filterStatus
       || (filterStatus === 'out' && ws === 0)
@@ -4187,16 +4228,17 @@ function WarehousePage() {
     return matchS && matchC && matchF;
   });
 
-  const outCount = products.filter(p => (p.warehouseStock || 0) === 0).length;
-  const lowCount = products.filter(p => { const ws = p.warehouseStock||0; return ws > 0 && ws <= (p.minWarehouseStock||10); }).length;
-  const totalWarehouse = products.reduce((a, p) => a + (p.warehouseStock||0), 0);
+  const outCount = products.filter(p => (p[stockKey] || 0) === 0).length;
+  const lowCount = products.filter(p => { const ws = p[stockKey]||0; return ws > 0 && ws <= (p.minWarehouseStock||10); }).length;
+  const totalWarehouse = products.reduce((a, p) => a + (p[stockKey]||0), 0);
 
   const handleUpdate = (p) => {
     const v = parseInt(editVal);
     if (isNaN(v) || v < 0) { addToast('Geçersiz miktar', 'error'); return; }
-    updateWarehouseStock(p.id, v);
+    const updated = { ...p, [stockKey]: v, updatedAt: new Date().toISOString() };
+    saveProduct(updated);
     setEditId(null);
-    addToast(`${p.name} depo stoku güncellendi: ${v}`, 'success');
+    addToast(`${p.name} — ${warehouses[activeWhIdx]?.name} stoku yeniləndi: ${v}`, 'success');
   };
 
   const getCatName = id => { const c = categories.find(x => x.id === id); return c ? c.name : '-'; };
@@ -4209,10 +4251,18 @@ function WarehousePage() {
       )
     ),
     React.createElement('div', { className: 'page-body' },
+      warehouses.length > 1 && React.createElement('div', { style: { display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' } },
+        warehouses.map((wh, idx) => React.createElement('button', {
+          key: wh.id,
+          className: 'btn ' + (activeWhIdx === idx ? 'btn-primary' : 'btn-secondary'),
+          style: { fontWeight: activeWhIdx === idx ? 700 : 400 },
+          onClick: () => { setActiveWhIdx(idx); setEditId(null); }
+        }, '🏭 ' + wh.name))
+      ),
       React.createElement('div', { className: 'stats-grid', style: { gridTemplateColumns: 'repeat(3,1fr)' } },
-        statCard('Toplam Depo Stoku', totalWarehouse + ' ədəd', products.length + ' məhsul', '🏭', 'blue'),
-        statCard('Depo Düşük Stok', lowCount + ' məhsul', 'Dikkat gerekiyor', '⚠️', ''),
-        statCard('Depo Tükenen', outCount + ' məhsul', 'Satın alma gerekli', '❌', '')
+        statCard(warehouses[activeWhIdx]?.name + ' Ümumi Stok', totalWarehouse + ' ədəd', products.length + ' məhsul', '🏭', 'blue'),
+        statCard('Aşağı Stok', lowCount + ' məhsul', 'Diqqət lazımdır', '⚠️', ''),
+        statCard('Tükənmiş', outCount + ' məhsul', 'Alış lazımdır', '❌', '')
       ),
       React.createElement('div', { className: 'filter-row' },
         React.createElement('div', { className: 'search-bar', style: { flex: 1 } },
@@ -4244,7 +4294,7 @@ function WarehousePage() {
               React.createElement('th', null, 'İşlem')
             )),
             React.createElement('tbody', null, filtered.map(p => {
-              const ws = p.warehouseStock || 0;
+              const ws = p[stockKey] || 0;
               const mws = p.minWarehouseStock || 10;
               const statusOk = ws > mws;
               const statusLow = ws > 0 && ws <= mws;
@@ -5796,6 +5846,41 @@ function SettingsPage() {
               React.createElement('input', { className: 'form-control', type: 'number', min: 0, value: form.lowStockThreshold || 10, onChange: e => set('lowStockThreshold', +e.target.value) })
             )
           )
+        ),
+
+        // ── ANBAR İDARƏETMƏSİ ────────────────────────
+        React.createElement('div', { className: 'card', style: { marginBottom: 16 } },
+          React.createElement('div', { className: 'card-header' }, React.createElement('span', { className: 'card-title' }, '🏭 Anbarlar')),
+          React.createElement('div', { style: { fontSize: 13, color: 'var(--text2)', marginBottom: 12 } }, 'Anbar əlavə edin, adlandırın. Hər anbar üçün məhsul stoku ayrıca izlənilir.'),
+          (form.warehouses || [{ id: 'wh1', name: 'Anbar 1' }]).map((wh, idx) =>
+            React.createElement('div', { key: wh.id, style: { display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8 } },
+              React.createElement('span', { style: { fontSize: 18 } }, '🏭'),
+              React.createElement('input', {
+                className: 'form-control',
+                value: wh.name,
+                onChange: e => {
+                  const updated = (form.warehouses || []).map((w, i) => i === idx ? { ...w, name: e.target.value } : w);
+                  set('warehouses', updated);
+                },
+                placeholder: 'Anbar adı',
+                style: { flex: 1 }
+              }),
+              (form.warehouses || []).length > 1 && React.createElement('button', {
+                className: 'btn btn-danger',
+                style: { padding: '6px 12px', fontSize: 13 },
+                onClick: () => set('warehouses', (form.warehouses || []).filter((_, i) => i !== idx))
+              }, '🗑')
+            )
+          ),
+          React.createElement('button', {
+            className: 'btn btn-secondary',
+            style: { marginTop: 4 },
+            onClick: () => {
+              const newId = 'wh' + Date.now();
+              const count = (form.warehouses || []).length + 1;
+              set('warehouses', [...(form.warehouses || []), { id: newId, name: 'Anbar ' + count }]);
+            }
+          }, '+ Anbar əlavə et')
         ),
 
         // ── BARKOD ETİKET ÖLÇÜİ ────────────────────────
