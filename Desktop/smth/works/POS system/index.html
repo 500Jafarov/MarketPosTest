@@ -5700,7 +5700,7 @@ function SettingsPage() {
             retailPrice:    parseFloat(get('satışqiyməti','satış','retailprice','price','qiymət','kassasatış','kassasatiş','pərakəndə') || 0) || 0,
             wholesalePrice: parseFloat(get('topalanqiymət','toptan','wholesaleprice','topdansatış','topdansatis') || 0) || 0,
             stock:          parseInt(get('stok','anbar','stock','quantity','miqdar','say','qalanmiqdar','qalan') || 0, 10) || 0,
-            [importStockKey]: parseInt(get('anbarstok','warehousestock','depo') || 0, 10) || 0,
+            [importStockKey]: parseInt(get('anbarstok','warehousestock','depo','stok','anbar','stock','quantity','miqdar','say') || 0, 10) || 0,
             minStock:       parseInt(get('minstok','minstock','minimum','minimalehtiyat') || 5, 10) || 5,
             minWarehouseStock: 0,
             unit:           String(get('vahid','unit','ölçü') || 'adet').trim(),
@@ -5810,13 +5810,14 @@ function SettingsPage() {
             const existRef = existingMap[skuKey] || existingMap[bcKey];
 
             if (existRef) {
-              // Mövcud məhsul — yalnız seçilmiş anbar stokunu yenilə
+              // Mövcud məhsul — yalnız seçilmiş anbar stokunu yenilə, digər anbarları toxunma
               b.set(existRef, { [importStockKey]: p[importStockKey] || 0, updatedAt: new Date().toISOString() }, { merge: true });
             } else {
-              // Yeni məhsul — tam əlavə et
-              const { id, ...rawData } = p;
+              // Yeni məhsul — tam əlavə et, amma yalnız seçilmiş anbarın stok sahəsini yaz
+              const { id, warehouseStock, warehouse2Stock, warehouse3Stock, warehouse4Stock, ...baseData } = p;
+              const stockFields = { [importStockKey]: p[importStockKey] || 0 };
               const ref = fbDB.collection('products').doc();
-              b.set(ref, { ...rawData, ownerId: uid, createdAt: new Date().toISOString() });
+              b.set(ref, { ...baseData, ...stockFields, ownerId: uid, createdAt: new Date().toISOString() });
             }
           });
           await b.commit();
