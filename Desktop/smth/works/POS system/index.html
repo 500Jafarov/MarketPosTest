@@ -5747,8 +5747,8 @@ function SettingsPage() {
     e.target.value = '';
   };
 
-  // ── RESTORE: JSON → tamamilə sil + yüklə | Excel → yalnız merge et ──
-  const handleRestoreApply = async () => {
+  // ── RESTORE: mode='merge' → mövcudlara əlavə et | mode='replace' → hamısını sil + yüklə ──
+  const handleRestoreApply = async (mode) => {
     if (!restoreData) return;
     const uid = currentUser?.uid;
     if (!uid) { addToast('Sessiya açıq deyil.', 'error'); return; }
@@ -5787,8 +5787,8 @@ function SettingsPage() {
     };
 
     try {
-      // ── EXCEL IMPORT: mövcud məlumatları SİLMƏ, yalnız anbar stokunu merge et ──
-      if (importSource === 'excel') {
+      // ── MERGE: mövcud məlumatları SİLMƏ, yalnız anbar stokunu merge et ──
+      if (mode === 'merge') {
         addToast('Excel məhsulları mövcud məlumatlara əlavə edilir…', 'info');
 
         // Mövcud məhsulları Firestore-dan oxu (SKU və barkod ilə match etmək üçün)
@@ -6066,25 +6066,35 @@ function SettingsPage() {
                   )
                 )
               ),
-              importSource === 'excel'
-                ? React.createElement('div', null,
-                    React.createElement('div', { className: 'alert', style: { background: 'rgba(34,197,94,0.1)', border: '1px solid rgba(34,197,94,0.3)', borderRadius: 8, padding: '10px 14px', marginBottom: 10, fontSize: 13, color: 'var(--green)' } },
-                      '✅ Excel import mövcud məhsulları SİLMİR — yalnız ' + (settingsWarehouses[importWhIdx]?.name || 'seçilmiş anbar') + ' stokunu yeniləyir / yeni məhsul əlavə edir.'
-                    ),
-                    React.createElement('button', {
-                      className: 'btn btn-primary',
-                      style: { width: '100%', justifyContent: 'center' },
-                      onClick: handleRestoreApply,
-                      disabled: restoreLoading
-                    }, restoreLoading ? '⏳ Əlavə edilir…' : '📥 ' + (settingsWarehouses[importWhIdx]?.name || 'Anbar') + '-ə İdxal et')
-                  )
-                : React.createElement('button', {
-                    className: 'btn btn-danger',
-                    style: { width: '100%', justifyContent: 'center' },
-                    onClick: handleRestoreApply,
+              React.createElement('div', null,
+                React.createElement('div', { style: { fontSize: 12, fontWeight: 600, color: 'var(--text2)', marginBottom: 8 } }, '⚙️ İdxal rejimi seçin:'),
+                React.createElement('div', { style: { display: 'flex', gap: 10, flexDirection: 'column' } },
+                  // Seçenek 1: Merge
+                  React.createElement('button', {
+                    className: 'btn btn-primary',
+                    style: { justifyContent: 'flex-start', gap: 10, padding: '12px 16px', textAlign: 'left' },
+                    onClick: () => handleRestoreApply('merge'),
                     disabled: restoreLoading
-                  }, restoreLoading ? '⏳ Bərpa edilir…' : '⬆️ Bu Yedəyi Bərpa et (mövcud məlumatların üzərinə yazır)'
+                  },
+                    React.createElement('div', null,
+                      React.createElement('div', { style: { fontWeight: 700, fontSize: 13 } }, restoreLoading ? '⏳ Əlavə edilir…' : '📥 Mövcudlara Əlavə et'),
+                      React.createElement('div', { style: { fontSize: 11, opacity: 0.8, marginTop: 2 } }, 'Mövcud məlumatlar silinmir. Yeni məhsullar əlavə edilir, mövcudların ' + (settingsWarehouses[importWhIdx]?.name || 'anbar') + ' stoku yenilənir.')
+                    )
+                  ),
+                  // Seçenek 2: Replace
+                  React.createElement('button', {
+                    className: 'btn btn-danger',
+                    style: { justifyContent: 'flex-start', gap: 10, padding: '12px 16px', textAlign: 'left' },
+                    onClick: () => handleRestoreApply('replace'),
+                    disabled: restoreLoading
+                  },
+                    React.createElement('div', null,
+                      React.createElement('div', { style: { fontWeight: 700, fontSize: 13 } }, restoreLoading ? '⏳ Bərpa edilir…' : '🗑️ Hamısını Sil, Yenidən Yüklə'),
+                      React.createElement('div', { style: { fontSize: 11, opacity: 0.8, marginTop: 2 } }, '⚠️ Mövcud bütün məhsul, satış və qaytarma məlumatları silinir. Geri alınmaz!')
+                    )
+                  )
                 )
+              )
             )
           )
         )
