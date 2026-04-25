@@ -74,6 +74,30 @@
   --shadow: 0 4px 24px rgba(0,0,0,0.5);
 }
 
+[data-theme="light"] {
+  --bg: #f0f2f5;
+  --bg2: #ffffff;
+  --bg3: #f5f6f8;
+  --bg4: #e8eaed;
+  --border: #dde1e9;
+  --border2: #c8cdd8;
+  --accent: #d4880a;
+  --accent2: #e09a18;
+  --accent-dim: rgba(212,136,10,0.10);
+  --accent-glow: rgba(212,136,10,0.20);
+  --green: #16a34a;
+  --green-dim: rgba(22,163,74,0.10);
+  --red: #dc2626;
+  --red-dim: rgba(220,38,38,0.10);
+  --blue: #2563eb;
+  --blue-dim: rgba(37,99,235,0.10);
+  --purple: #9333ea;
+  --text: #0f1117;
+  --text2: #4b5563;
+  --text3: #9ca3af;
+  --shadow: 0 4px 24px rgba(0,0,0,0.10);
+}
+
 * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
 
 body {
@@ -1330,6 +1354,7 @@ const SEED_SETTINGS = {
   labelWidthMm: 30,
   labelHeightMm: 22,
   warehouses: [{ id: 'wh1', name: 'Anbar 1' }],
+  theme: 'dark',
 };
 
 // Generate sample sales
@@ -1412,6 +1437,7 @@ function AppProvider({ children }) {
   useEffect(() => { Storage.set('categories', categories); }, [categories]);
   useEffect(() => { Storage.set('customers', customers); }, [customers]);
   useEffect(() => { Storage.set('settings', settings); }, [settings]);
+  useEffect(() => { document.documentElement.dataset.theme = settings.theme === 'light' ? 'light' : 'dark'; }, [settings.theme]);
   useEffect(() => { Storage.set('transfers', transfers); }, [transfers]);
 
   // ── Firebase Auth state observer ──────────────────────────────
@@ -1588,8 +1614,12 @@ function AppProvider({ children }) {
   const deleteUser = useCallback((id) => { setUsers(prev => prev.filter(x => x.id !== id)); }, []);
 
   // Settings
+  const applyTheme = (s) => {
+    document.documentElement.dataset.theme = s.theme === 'light' ? 'light' : 'dark';
+  };
   const saveSettings = useCallback((s) => {
     setSettings(s);
+    applyTheme(s);
     fbSaveStoreData({ settings: s, ownerName: s.storeName || '' }).catch(err => console.error('[FB] saveSettings:', err));
   }, []);
 
@@ -5912,6 +5942,37 @@ function SettingsPage() {
     ),
     React.createElement('div', { className: 'page-body' },
       React.createElement('div', { style: { maxWidth: 600 } },
+
+        // ── Tema seçimi ──
+        React.createElement('div', { className: 'card', style: { marginBottom: 16 } },
+          React.createElement('div', { className: 'card-header' }, React.createElement('span', { className: 'card-title' }, '🎨 Görünüş')),
+          React.createElement('div', { style: { display: 'flex', gap: 12 } },
+            [
+              { value: 'dark',  label: '🌙 Gecə', desc: 'Tünd fon, açıq yazı' },
+              { value: 'light', label: '☀️ Gündüz', desc: 'Açıq fon, tünd yazı' },
+            ].map(opt =>
+              React.createElement('div', {
+                key: opt.value,
+                onClick: () => { set('theme', opt.value); document.documentElement.dataset.theme = opt.value; },
+                style: {
+                  flex: 1, cursor: 'pointer', borderRadius: 10, padding: '14px 16px',
+                  border: '2px solid ' + (form.theme === opt.value ? 'var(--accent)' : 'var(--border2)'),
+                  background: form.theme === opt.value ? 'var(--accent-dim)' : 'var(--bg3)',
+                  transition: 'all 0.15s',
+                  display: 'flex', alignItems: 'center', gap: 10,
+                }
+              },
+                React.createElement('div', { style: { fontSize: 28 } }, opt.value === 'dark' ? '🌙' : '☀️'),
+                React.createElement('div', null,
+                  React.createElement('div', { style: { fontWeight: 700, fontSize: 14 } }, opt.value === 'dark' ? 'Gecə Rejimi' : 'Gündüz Rejimi'),
+                  React.createElement('div', { style: { fontSize: 11, color: 'var(--text3)', marginTop: 2 } }, opt.desc)
+                ),
+                form.theme === opt.value && React.createElement('div', { style: { marginLeft: 'auto', color: 'var(--accent)', fontWeight: 700, fontSize: 16 } }, '✓')
+              )
+            )
+          )
+        ),
+
         React.createElement('div', { className: 'card', style: { marginBottom: 16 } },
           React.createElement('div', { className: 'card-header' }, React.createElement('span', { className: 'card-title' }, '🏪 Mağaza Bilgileri')),
           React.createElement('div', { className: 'form-group' }, React.createElement('label', { className: 'form-label' }, 'Mağaza adı'), React.createElement('input', { className: 'form-control', value: form.storeName || '', onChange: e => set('storeName', e.target.value), placeholder: 'Mağaza adı' })),
