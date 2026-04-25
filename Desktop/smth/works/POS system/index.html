@@ -5449,8 +5449,11 @@ function SettingsPage() {
 
         if (!rows.length) { addToast('Excel cədvəlində məlumat tapılmadı.', 'error'); return; }
 
-        // Sütun adlarını normallaşdır (lowercase + boşluqsuz)
-        const norm = (s) => String(s || '').toLowerCase().replace(/\s+/g, '');
+        // Sütun adlarını normallaşdır (lowercase + boşluqsuz + Az/TR hərfləri)
+        const norm = (s) => String(s || '').toLowerCase()
+          .replace(/ı/g,'i').replace(/ş/g,'s').replace(/ə/g,'e')
+          .replace(/ü/g,'u').replace(/ö/g,'o').replace(/ğ/g,'g').replace(/ç/g,'c')
+          .replace(/\s+/g,'').replace(/[()]/g,'');
 
         // Kateqoriya adı → id xəritəsi (avtomatik yaradılır)
         const catMap = {};
