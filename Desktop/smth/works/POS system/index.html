@@ -5373,14 +5373,22 @@ function UsersPage() {
 function SettingsPage() {
   const { settings, saveSettings, addToast, products, sales, categories, customers, users,
           saveProduct, saveCategory, saveUser, saveSettings: saveS, currentUser } = useApp();
-  const [form, setForm] = useState({ ...settings });
+  const [form, setForm] = useState({ ...SEED_SETTINGS, ...settings });
   const [restoreInfo, setRestoreInfo] = useState(null);
   const [restoreData, setRestoreData] = useState(null);
   const [restoreLoading, setRestoreLoading] = useState(false);
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
+  // Firestore-dan settings gəldikdə formu sinxronlaşdır
+  useEffect(() => { setForm(f => ({ ...SEED_SETTINGS, ...settings, ...f })); }, [settings]);
+
   const handleSave = () => {
-    saveSettings(form);
+    const toSave = {
+      ...form,
+      labelWidthMm:  +(form.labelWidthMm  || 30),
+      labelHeightMm: +(form.labelHeightMm || 22),
+    };
+    saveSettings(toSave);
     addToast('Parametrlər saxlanıldı.', 'success');
   };
 
