@@ -5577,6 +5577,7 @@ function SettingsPage() {
   const [restoreData, setRestoreData] = useState(null);
   const [restoreLoading, setRestoreLoading] = useState(false);
   const [importWhIdx, setImportWhIdx] = useState(0); // Excel/JSON import üçün seçilmiş anbar indeksi
+  const [importSource, setImportSource] = useState('json'); // 'json' | 'excel'
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
   const settingsWarehouses = (form.warehouses && form.warehouses.length > 0)
@@ -5634,6 +5635,7 @@ function SettingsPage() {
         const hasMarker   = data.exportedAt || data.exportedBy;
         if (!hasMarker && !hasProducts) { addToast('Keçərsiz yedək faylı! (tanınmayan format)', 'error'); return; }
         setRestoreData(data);
+        setImportSource('json');
         setRestoreInfo({
           exportedAt: data.exportedAt,
           storeName: data.storeName,
@@ -5727,6 +5729,7 @@ function SettingsPage() {
           returns:     [],
         };
         setRestoreData(data);
+        setImportSource('excel');
         setRestoreInfo({
           exportedAt:    data.exportedAt,
           storeName:     'Excel: ' + file.name,
@@ -5744,7 +5747,7 @@ function SettingsPage() {
     e.target.value = '';
   };
 
-  // ── RESTORE: Mevcut veriyi sil → yeni JSON'u yükle ──
+  // ── RESTORE: JSON → tamamilə sil + yüklə | Excel → yalnız merge et ──
   const handleRestoreApply = async () => {
     if (!restoreData) return;
     const uid = currentUser?.uid;
@@ -5754,7 +5757,6 @@ function SettingsPage() {
     const d = restoreData;
     const CHUNK = 450;
 
-    // {seconds, nanoseconds} obyektini Firestore Timestamp-ə çevir
     const convertTimestamps = (obj) => {
       if (!obj || typeof obj !== 'object') return obj;
       if (Array.isArray(obj)) return obj.map(convertTimestamps);
@@ -5765,20 +5767,17 @@ function SettingsPage() {
       return result;
     };
 
-    // Koleksiyondaki tüm belgeleri tek tek sil (parallel), sonra bekle
     const deleteCollection = async (col) => {
       const snap = await fbDB.collection(col).where('ownerId', '==', uid).get();
       if (snap.empty) return;
       await Promise.all(snap.docs.map(doc => doc.ref.delete()));
     };
 
-    // Diziyi CHUNK'lara bölerek batch ile yükle
     const uploadChunked = async (col, items) => {
       for (let i = 0; i < items.length; i += CHUNK) {
         const b = fbDB.batch();
         items.slice(i, i + CHUNK).forEach(item => {
           const { id, ...rawData } = item;
-          // ownerId → cari istifadəçi, Timestamp-ları çevir
           const data = convertTimestamps({ ...rawData, ownerId: uid });
           const ref = id ? fbDB.collection(col).doc(id) : fbDB.collection(col).doc();
           b.set(ref, data);
@@ -5788,13 +5787,62 @@ function SettingsPage() {
     };
 
     try {
-      // 1. Önce TAMAMEN SİL
+      // ── EXCEL IMPORT: mövcud məlumatları SİLMƏ, yalnız anbar stokunu merge et ──
+      if (importSource === 'excel') {
+        addToast('Excel məhsulları mövcud məlumatlara əlavə edilir…', 'info');
+
+        // Mövcud məhsulları Firestore-dan oxu (SKU və barkod ilə match etmək üçün)
+        const existingSnap = await fbDB.collection('products').where('ownerId', '==', uid).get();
+        const existingMap = {}; // sku → docRef
+        existingSnap.docs.forEach(doc => {
+          const p = doc.data();
+          if (p.sku) existingMap['sku_' + String(p.sku).trim()] = doc.ref;
+          if (p.barcode) existingMap['bc_' + String(p.barcode).trim()] = doc.ref;
+        });
+
+        const newProducts = d.products || [];
+        const MERGE_CHUNK = 400;
+        for (let i = 0; i < newProducts.length; i += MERGE_CHUNK) {
+          const b = fbDB.batch();
+          newProducts.slice(i, i + MERGE_CHUNK).forEach(p => {
+            const skuKey = 'sku_' + String(p.sku || '').trim();
+            const bcKey  = 'bc_'  + String(p.barcode || '').trim();
+            const existRef = existingMap[skuKey] || existingMap[bcKey];
+
+            if (existRef) {
+              // Mövcud məhsul — yalnız seçilmiş anbar stokunu yenilə
+              b.set(existRef, { [importStockKey]: p[importStockKey] || 0, updatedAt: new Date().toISOString() }, { merge: true });
+            } else {
+              // Yeni məhsul — tam əlavə et
+              const { id, ...rawData } = p;
+              const ref = fbDB.collection('products').doc();
+              b.set(ref, { ...rawData, ownerId: uid, createdAt: new Date().toISOString() });
+            }
+          });
+          await b.commit();
+        }
+
+        // Kateqoriyaları da merge et (mövcudları saxla, yenilərini əlavə et)
+        if (d.categories && d.categories.length > 0) {
+          const existing = JSON.parse(localStorage.getItem('pos_categories') || '[]');
+          const existingIds = new Set(existing.map(c => c.id));
+          const merged = [...existing, ...d.categories.filter(c => !existingIds.has(c.id))];
+          localStorage.setItem('pos_categories', JSON.stringify(merged));
+        }
+
+        addToast('Excel məhsulları uğurla əlavə edildi! Mövcud məlumatlar qorundu.', 'success');
+        setRestoreData(null);
+        setRestoreInfo(null);
+        setTimeout(() => window.location.reload(), 1500);
+        return;
+      }
+
+      // ── JSON IMPORT: köhnə davranış — hamısını sil + yüklə ──
       addToast('Mövcud məlumatlar silinir…', 'info');
       await deleteCollection('products');
       await deleteCollection('sales');
       await deleteCollection('returns');
 
-      // 2. Sonra YENİ VERİYİ YÜKLE
       addToast('Yeni məlumatlar yüklənir…', 'info');
       // JSON-da warehouseStock seçilmiş anbara aid edilsin
       const remappedProducts = (d.products || []).map(p => {
@@ -5806,7 +5854,6 @@ function SettingsPage() {
       await uploadChunked('sales',    d.sales || d.todaySales || []);
       await uploadChunked('returns',  d.returns  || []);
 
-      // 3. Store ayarları
       if (d.settings) {
         await fbDB.collection('stores').doc(uid).set(
           { settings: d.settings, ownerName: d.settings.storeName || '' },
@@ -5814,7 +5861,6 @@ function SettingsPage() {
         );
       }
 
-      // 4. Kategoriler & müşteriler → localStorage
       if (d.categories) localStorage.setItem('pos_categories', JSON.stringify(d.categories));
       if (d.customers)  localStorage.setItem('pos_customers',  JSON.stringify(d.customers));
 
@@ -6020,13 +6066,25 @@ function SettingsPage() {
                   )
                 )
               ),
-              React.createElement('button', {
-                className: 'btn btn-danger',
-                style: { width: '100%', justifyContent: 'center' },
-                onClick: handleRestoreApply,
-                disabled: restoreLoading
-              }, restoreLoading ? '⏳ Bərpa edilir…' : '⬆️ Bu Yedəyi Bərpa et (mövcud məlumatların üzərinə yazır)'
-              )
+              importSource === 'excel'
+                ? React.createElement('div', null,
+                    React.createElement('div', { className: 'alert', style: { background: 'rgba(34,197,94,0.1)', border: '1px solid rgba(34,197,94,0.3)', borderRadius: 8, padding: '10px 14px', marginBottom: 10, fontSize: 13, color: 'var(--green)' } },
+                      '✅ Excel import mövcud məhsulları SİLMİR — yalnız ' + (settingsWarehouses[importWhIdx]?.name || 'seçilmiş anbar') + ' stokunu yeniləyir / yeni məhsul əlavə edir.'
+                    ),
+                    React.createElement('button', {
+                      className: 'btn btn-primary',
+                      style: { width: '100%', justifyContent: 'center' },
+                      onClick: handleRestoreApply,
+                      disabled: restoreLoading
+                    }, restoreLoading ? '⏳ Əlavə edilir…' : '📥 ' + (settingsWarehouses[importWhIdx]?.name || 'Anbar') + '-ə İdxal et')
+                  )
+                : React.createElement('button', {
+                    className: 'btn btn-danger',
+                    style: { width: '100%', justifyContent: 'center' },
+                    onClick: handleRestoreApply,
+                    disabled: restoreLoading
+                  }, restoreLoading ? '⏳ Bərpa edilir…' : '⬆️ Bu Yedəyi Bərpa et (mövcud məlumatların üzərinə yazır)'
+                )
             )
           )
         )
