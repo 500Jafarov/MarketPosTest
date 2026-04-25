@@ -5973,19 +5973,9 @@ function SettingsPage() {
               '⚠ Geri yükleme mevcut tüm verilerin üzerine yazar. İşlem geri alınamaz.'
             ),
 
-            // File picker
-            React.createElement('label', { style: { display: 'flex', alignItems: 'center', gap: 10, padding: '12px 14px', background: 'var(--bg3)', border: '2px dashed var(--border2)', borderRadius: 'var(--radius)', cursor: 'pointer', transition: 'border-color 0.15s', marginBottom: 12 }, className: 'restore-drop' },
-              React.createElement('span', { style: { fontSize: 24 } }, '📂'),
-              React.createElement('div', { style: { flex: 1 } },
-                React.createElement('div', { style: { fontWeight: 600, fontSize: 13 } }, 'JSON Yedek Dosyası Seç'),
-                React.createElement('div', { style: { fontSize: 12, color: 'var(--text3)' } }, 'marketpos-yedek-YYYY-MM-DD.json')
-              ),
-              React.createElement('input', { type: 'file', accept: '.json,application/json', style: { display: 'none' }, onChange: handleRestoreFile })
-            ),
-
-            // Anbar seçimi (Excel/JSON import üçün)
-            settingsWarehouses.length > 1 && React.createElement('div', { style: { marginBottom: 10 } },
-              React.createElement('div', { style: { fontSize: 12, color: 'var(--text3)', marginBottom: 6 } }, '📥 İdxal edilən anbar stoqu hansı anbara aid olsun?'),
+            // Anbar seçimi (həm JSON həm Excel import üçün — 2+ anbar olduqda görünür)
+            settingsWarehouses.length > 1 && React.createElement('div', { style: { background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 8, padding: '10px 14px', marginBottom: 12 } },
+              React.createElement('div', { style: { fontSize: 12, fontWeight: 600, color: 'var(--text2)', marginBottom: 8 } }, '🏭 İdxal edilən stok hansı anbara aid olsun?'),
               React.createElement('div', { style: { display: 'flex', gap: 6, flexWrap: 'wrap' } },
                 settingsWarehouses.map((wh, idx) =>
                   React.createElement('button', {
@@ -5993,9 +5983,19 @@ function SettingsPage() {
                     type: 'button',
                     className: 'btn btn-sm ' + (importWhIdx === idx ? 'btn-primary' : 'btn-secondary'),
                     onClick: () => setImportWhIdx(idx)
-                  }, wh.name)
+                  }, (importWhIdx === idx ? '✓ ' : '') + wh.name)
                 )
               )
+            ),
+
+            // JSON File picker
+            React.createElement('label', { style: { display: 'flex', alignItems: 'center', gap: 10, padding: '12px 14px', background: 'var(--bg3)', border: '2px dashed var(--border2)', borderRadius: 'var(--radius)', cursor: 'pointer', transition: 'border-color 0.15s', marginBottom: 12 }, className: 'restore-drop' },
+              React.createElement('span', { style: { fontSize: 24 } }, '📂'),
+              React.createElement('div', { style: { flex: 1 } },
+                React.createElement('div', { style: { fontWeight: 600, fontSize: 13 } }, 'JSON Yedək Faylı Seç' + (settingsWarehouses.length > 1 ? ' → ' + settingsWarehouses[importWhIdx]?.name : '')),
+                React.createElement('div', { style: { fontSize: 12, color: 'var(--text3)' } }, 'marketpos-yedek-YYYY-MM-DD.json')
+              ),
+              React.createElement('input', { type: 'file', accept: '.json,application/json', style: { display: 'none' }, onChange: handleRestoreFile })
             ),
 
             // Excel file picker
