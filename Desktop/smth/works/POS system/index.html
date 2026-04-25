@@ -3597,6 +3597,12 @@ function ProductModal({ product, categories, settings, onSave, onClose }) {
 
   const handleSubmit = () => {
     if (!validate()) return;
+    // Bütün anbar stok sahələrini dinamik yığ
+    const whStockFields = {};
+    warehouses.forEach((wh, idx) => {
+      const key = idx === 0 ? 'warehouseStock' : 'warehouse' + (idx + 1) + 'Stock';
+      whStockFields[key] = +form[key] || 0;
+    });
     onSave({
       ...form,
       retailPrice: +form.retailPrice,
@@ -3604,8 +3610,8 @@ function ProductModal({ product, categories, settings, onSave, onClose }) {
       purchasePrice: +form.purchasePrice || 0,
       stock: +form.stock || 0,
       minStock: +form.minStock || 10,
-      warehouseStock: +form.warehouseStock || 0,
       minWarehouseStock: +form.minWarehouseStock || 10,
+      ...whStockFields,
     });
   };
 
@@ -5566,7 +5572,12 @@ function SettingsPage() {
   const [restoreInfo, setRestoreInfo] = useState(null);
   const [restoreData, setRestoreData] = useState(null);
   const [restoreLoading, setRestoreLoading] = useState(false);
+  const [importWhIdx, setImportWhIdx] = useState(0); // Excel/JSON import üçün seçilmiş anbar indeksi
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
+
+  const settingsWarehouses = (form.warehouses && form.warehouses.length > 0)
+    ? form.warehouses : [{ id: 'wh1', name: 'Anbar 1' }];
+  const importStockKey = importWhIdx === 0 ? 'warehouseStock' : 'warehouse' + (importWhIdx + 1) + 'Stock';
 
   // Firestore-dan settings gəldikdə formu sinxronlaşdır
   useEffect(() => { setForm(f => ({ ...SEED_SETTINGS, ...settings, ...f })); }, [settings]);
@@ -5683,7 +5694,7 @@ function SettingsPage() {
             retailPrice:    parseFloat(get('satışqiyməti','satış','retailprice','price','qiymət','kassasatış','kassasatiş','pərakəndə') || 0) || 0,
             wholesalePrice: parseFloat(get('topalanqiymət','toptan','wholesaleprice','topdansatış','topdansatis') || 0) || 0,
             stock:          parseInt(get('stok','anbar','stock','quantity','miqdar','say','qalanmiqdar','qalan') || 0, 10) || 0,
-            warehouseStock: parseInt(get('anbarstok','warehousestock','depo') || 0, 10) || 0,
+            [importStockKey]: parseInt(get('anbarstok','warehousestock','depo') || 0, 10) || 0,
             minStock:       parseInt(get('minstok','minstock','minimum','minimalehtiyat') || 5, 10) || 5,
             minWarehouseStock: 0,
             unit:           String(get('vahid','unit','ölçü') || 'adet').trim(),
@@ -5781,7 +5792,13 @@ function SettingsPage() {
 
       // 2. Sonra YENİ VERİYİ YÜKLE
       addToast('Yeni məlumatlar yüklənir…', 'info');
-      await uploadChunked('products', d.products || []);
+      // JSON-da warehouseStock seçilmiş anbara aid edilsin
+      const remappedProducts = (d.products || []).map(p => {
+        if (importStockKey === 'warehouseStock') return p;
+        const { warehouseStock, ...rest } = p;
+        return { ...rest, warehouseStock: 0, [importStockKey]: warehouseStock || 0 };
+      });
+      await uploadChunked('products', remappedProducts);
       await uploadChunked('sales',    d.sales || d.todaySales || []);
       await uploadChunked('returns',  d.returns  || []);
 
@@ -5962,11 +5979,26 @@ function SettingsPage() {
               React.createElement('input', { type: 'file', accept: '.json,application/json', style: { display: 'none' }, onChange: handleRestoreFile })
             ),
 
+            // Anbar seçimi (Excel/JSON import üçün)
+            settingsWarehouses.length > 1 && React.createElement('div', { style: { marginBottom: 10 } },
+              React.createElement('div', { style: { fontSize: 12, color: 'var(--text3)', marginBottom: 6 } }, '📥 İdxal edilən anbar stoqu hansı anbara aid olsun?'),
+              React.createElement('div', { style: { display: 'flex', gap: 6, flexWrap: 'wrap' } },
+                settingsWarehouses.map((wh, idx) =>
+                  React.createElement('button', {
+                    key: wh.id,
+                    type: 'button',
+                    className: 'btn btn-sm ' + (importWhIdx === idx ? 'btn-primary' : 'btn-secondary'),
+                    onClick: () => setImportWhIdx(idx)
+                  }, wh.name)
+                )
+              )
+            ),
+
             // Excel file picker
             React.createElement('label', { style: { display: 'flex', alignItems: 'center', gap: 10, padding: '12px 14px', background: 'var(--bg3)', border: '2px dashed #217346', borderRadius: 'var(--radius)', cursor: 'pointer', transition: 'border-color 0.15s', marginBottom: 12 }, className: 'restore-drop' },
               React.createElement('span', { style: { fontSize: 24 } }, '📊'),
               React.createElement('div', { style: { flex: 1 } },
-                React.createElement('div', { style: { fontWeight: 600, fontSize: 13 } }, 'Excel Faylından Məhsul İdxal et'),
+                React.createElement('div', { style: { fontWeight: 600, fontSize: 13 } }, 'Excel Faylından Məhsul İdxal et' + (settingsWarehouses.length > 1 ? ' → ' + settingsWarehouses[importWhIdx]?.name : '')),
                 React.createElement('div', { style: { fontSize: 12, color: 'var(--text3)' } }, '.xlsx / .xls — "Ad, SKU, Barkod, Qiymət, Stok" sütunları')
               ),
               React.createElement('input', { type: 'file', accept: '.xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel', style: { display: 'none' }, onChange: handleRestoreExcel })
