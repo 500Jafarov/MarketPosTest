@@ -32,6 +32,7 @@
 <script src="https://cdn.jsdelivr.net/npm/qz-tray@2.2.4/qz-tray.min.js" onerror="console.log('QZ Tray yüklənmədi, adi çap istifadə olunacaq')"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jsbarcode/3.11.5/JsBarcode.all.min.js" onerror="console.log('JsBarcode yüklənmədi')"></script>
 <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js" onerror="console.log('EmailJS yüklənmədi')"></script>
+<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js" onerror="console.log('SheetJS yüklənmədi')"></script>
 
 <!-- Firebase SDK (compat) -->
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
@@ -5431,6 +5432,87 @@ function SettingsPage() {
     e.target.value = '';
   };
 
+  // ── RESTORE: Excel (.xlsx/.xls) faylından məhsulları oxu ──
+  const handleRestoreExcel = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    if (typeof XLSX === 'undefined') { addToast('SheetJS kitabxanası yüklənmədi. İnternet bağlantısını yoxlayın.', 'error'); return; }
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      try {
+        const wb = XLSX.read(ev.target.result, { type: 'array' });
+
+        // "Mehsullar" və ya ilk sheet-i götür
+        const sheetName = wb.SheetNames.find(n => /m[əe]hsul/i.test(n)) || wb.SheetNames[0];
+        const ws = wb.Sheets[sheetName];
+        const rows = XLSX.utils.sheet_to_json(ws, { defval: '' });
+
+        if (!rows.length) { addToast('Excel cədvəlində məlumat tapılmadı.', 'error'); return; }
+
+        // Sütun adlarını normallaşdır (lowercase + boşluqsuz)
+        const norm = (s) => String(s || '').toLowerCase().replace(/\s+/g, '');
+
+        const products = rows.map((row, idx) => {
+          const get = (...keys) => {
+            for (const k of Object.keys(row)) {
+              if (keys.some(q => norm(k) === norm(q) || norm(k).includes(norm(q)))) return row[k];
+            }
+            return '';
+          };
+          return {
+            id: 'xls_' + Date.now() + '_' + idx,
+            name:           String(get('ad','name','məhsul','mehsul','product') || '').trim(),
+            sku:            String(get('sku','kod','code','artikul') || '').trim(),
+            barcode:        String(get('barcode','barkod','ştrihkod') || '').trim(),
+            categoryId:     '',
+            brand:          String(get('brand','marka','brend') || '').trim(),
+            purchasePrice:  parseFloat(get('alışqiyməti','alış','purchaseprice','costprice','maya') || 0) || 0,
+            retailPrice:    parseFloat(get('satışqiyməti','satış','retailprice','price','qiymət') || 0) || 0,
+            wholesalePrice: parseFloat(get('topalanqiymət','toptan','wholesaleprice') || 0) || 0,
+            stock:          parseInt(get('stok','anbar','stock','quantity','miqdar','say') || 0, 10) || 0,
+            warehouseStock: parseInt(get('anbarstok','warehousestock','depo') || 0, 10) || 0,
+            minStock:       parseInt(get('minstok','minstock','minimum') || 5, 10) || 5,
+            minWarehouseStock: 0,
+            unit:           String(get('vahid','unit','ölçü') || 'adet').trim(),
+            description:    String(get('açıqlama','description','qeyd','note') || '').trim(),
+            active:         true,
+            image:          null,
+            emoji:          '',
+            createdAt:      new Date().toISOString().slice(0,10),
+            updatedAt:      new Date().toISOString().slice(0,10),
+          };
+        }).filter(p => p.name);
+
+        if (!products.length) { addToast('Məhsul adı olan sətir tapılmadı. "Ad/Name/Məhsul" sütununu yoxlayın.', 'error'); return; }
+
+        const data = {
+          exportedAt:  new Date().toISOString(),
+          exportedBy:  'Excel Import',
+          storeName:   '',
+          products,
+          sales:       [],
+          categories:  [],
+          customers:   [],
+          returns:     [],
+        };
+        setRestoreData(data);
+        setRestoreInfo({
+          exportedAt:    data.exportedAt,
+          storeName:     'Excel: ' + file.name,
+          productCount:  products.length,
+          saleCount:     0,
+          customerCount: 0,
+        });
+        addToast(products.length + ' məhsul Excel-dən oxundu. Bərpa üçün təsdiq edin.', 'info');
+      } catch (err) {
+        console.error('[ExcelImport]', err);
+        addToast('Excel oxuna bilmədi: ' + err.message, 'error');
+      }
+    };
+    reader.readAsArrayBuffer(file);
+    e.target.value = '';
+  };
+
   // ── RESTORE: Mevcut veriyi sil → yeni JSON'u yükle ──
   const handleRestoreApply = async () => {
     if (!restoreData) return;
@@ -5612,6 +5694,16 @@ function SettingsPage() {
                 React.createElement('div', { style: { fontSize: 12, color: 'var(--text3)' } }, 'marketpos-yedek-YYYY-MM-DD.json')
               ),
               React.createElement('input', { type: 'file', accept: '.json,application/json', style: { display: 'none' }, onChange: handleRestoreFile })
+            ),
+
+            // Excel file picker
+            React.createElement('label', { style: { display: 'flex', alignItems: 'center', gap: 10, padding: '12px 14px', background: 'var(--bg3)', border: '2px dashed #217346', borderRadius: 'var(--radius)', cursor: 'pointer', transition: 'border-color 0.15s', marginBottom: 12 }, className: 'restore-drop' },
+              React.createElement('span', { style: { fontSize: 24 } }, '📊'),
+              React.createElement('div', { style: { flex: 1 } },
+                React.createElement('div', { style: { fontWeight: 600, fontSize: 13 } }, 'Excel Faylından Məhsul İdxal et'),
+                React.createElement('div', { style: { fontSize: 12, color: 'var(--text3)' } }, '.xlsx / .xls — "Ad, SKU, Barkod, Qiymət, Stok" sütunları')
+              ),
+              React.createElement('input', { type: 'file', accept: '.xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel', style: { display: 'none' }, onChange: handleRestoreExcel })
             ),
 
             // Restore preview
