@@ -72,7 +72,7 @@ async function fbCompleteSale(sale) {
 
   const saleRef = fbDB.collection('sales').doc();
   const { id: _localId, items, ...saleData } = sale;
-  const cleanItems = items.map(({ _curWarehouseStock, ...rest }) => rest);
+  const cleanItems = items.map(({ _curWarehouseStock, _warehouseStockKey, ...rest }) => rest);
   batch.set(saleRef, {
     ...saleData,
     items: cleanItems,
@@ -84,10 +84,11 @@ async function fbCompleteSale(sale) {
   for (const item of items) {
     if (!item.productId) continue;
     const prodRef = fbDB.doc('products/' + item.productId);
-    const newWarehouseStock = Math.max(0, (item._curWarehouseStock || 0) - item.qty);
+    const whKey = item._warehouseStockKey || 'warehouseStock';
+    const newWhStock = Math.max(0, (item._curWarehouseStock || 0) - item.qty);
     batch.set(prodRef, {
       stock: INC(-item.qty),
-      warehouseStock: newWarehouseStock,
+      [whKey]: newWhStock,
       updatedAt: TS(),
     }, { merge: true });
   }
