@@ -3601,15 +3601,27 @@ function ProductModal({ product, categories, settings, onSave, onClose }) {
 
   const handleSubmit = () => {
     if (!validate()) return;
-    onSave({
-      ...form,
+    // form-dan bütün anbar stok sahələrini çıxar
+    const { warehouseStock, warehouse2Stock, warehouse3Stock, warehouse4Stock, warehouse5Stock, minWarehouseStock, ...baseForm } = form;
+    const saved = {
+      ...baseForm,
       retailPrice: +form.retailPrice,
       wholesalePrice: +form.wholesalePrice,
       purchasePrice: +form.purchasePrice || 0,
       stock: +form.stock || 0,
       minStock: +form.minStock || 10,
+      minWarehouseStock: +form.minWarehouseStock || 0,
+      // Yalnız seçilmiş anbarın stokunu yaz
       [stockKey]: +form[stockKey] || 0,
-    });
+    };
+    // Mövcud məhsul redaktəsindəki digər anbar stoklarını qoru
+    if (product) {
+      warehouses.forEach((wh, idx) => {
+        const k = idx === 0 ? 'warehouseStock' : 'warehouse' + (idx + 1) + 'Stock';
+        if (k !== stockKey && product[k] !== undefined) saved[k] = product[k];
+      });
+    }
+    onSave(saved);
   };
 
   const emojis = ['📦','🥤','🍟','🍪','🧴','🧹','🔋','🍵','🥫','💊','🛒','🎁'];
