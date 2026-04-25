@@ -681,7 +681,7 @@ textarea.form-control { resize: vertical; min-height: 80px; }
 /* Receipt styles */
 .receipt-preview {
   background: #fff;
-  color: #111;
+  color: #000;
   font-family: Arial, Helvetica, sans-serif;
   font-size: 13px;
   padding: 20px 16px;
@@ -690,13 +690,14 @@ textarea.form-control { resize: vertical; min-height: 80px; }
   margin: 0 auto;
   line-height: 1.7;
 }
+.receipt-preview * { color: #000 !important; }
 .receipt-header { text-align: center; margin-bottom: 12px; }
-.receipt-store-name { font-size: 18px; font-weight: bold; }
-.receipt-divider { border-top: 1px dashed #666; margin: 8px 0; }
-.receipt-double-divider { border-top: 2px solid #111; margin: 8px 0; }
-.receipt-row { display: flex; justify-content: space-between; margin: 3px 0; font-size: 13px; }
-.receipt-total { font-size: 15px; font-weight: bold; }
-.receipt-footer { text-align: center; margin-top: 12px; font-size: 12px; color: #555; }
+.receipt-store-name { font-size: 18px; font-weight: bold; color: #000 !important; }
+.receipt-divider { border-top: 1px dashed #555; margin: 8px 0; }
+.receipt-double-divider { border-top: 2px solid #000; margin: 8px 0; }
+.receipt-row { display: flex; justify-content: space-between; margin: 3px 0; font-size: 13px; color: #000 !important; }
+.receipt-total { font-size: 15px; font-weight: bold; color: #000 !important; }
+.receipt-footer { text-align: center; margin-top: 12px; font-size: 12px; color: #333 !important; }
 
 /* Tabs */
 .tabs { display: flex; gap: 2px; border-bottom: 1px solid var(--border); margin-bottom: 18px; }
@@ -3023,22 +3024,22 @@ function ReceiptModal({ sale, onClose, settings }) {
         sale.customerName && React.createElement('div', { className: 'receipt-row' }, React.createElement('span', null, 'Müştəri:'), React.createElement('span', null, sale.customerName)),
         sale.customerPhone && React.createElement('div', { className: 'receipt-row' }, React.createElement('span', null, 'Telefon:'), React.createElement('span', null, sale.customerPhone)),
         React.createElement('div', { className: 'receipt-divider' }),
-        React.createElement('table', { style: { width: '100%', borderCollapse: 'collapse', fontSize: 13, marginBottom: 4, fontFamily: 'Arial, sans-serif' } },
+        React.createElement('table', { style: { width: '100%', borderCollapse: 'collapse', fontSize: 13, marginBottom: 4, fontFamily: 'Arial, sans-serif', color: '#000' } },
           React.createElement('thead', null,
-            React.createElement('tr', { style: { borderBottom: '2px solid #333' } },
-              React.createElement('th', { style: { textAlign: 'left', padding: '4px 3px', fontWeight: 700 } }, 'Məhsulun adı'),
-              React.createElement('th', { style: { textAlign: 'right', padding: '4px 3px', fontWeight: 700 } }, 'Miqdar'),
-              React.createElement('th', { style: { textAlign: 'right', padding: '4px 3px', fontWeight: 700 } }, 'Qiymət'),
-              React.createElement('th', { style: { textAlign: 'right', padding: '4px 3px', fontWeight: 700 } }, 'Məbləğ')
+            React.createElement('tr', { style: { borderBottom: '2px solid #000' } },
+              React.createElement('th', { style: { textAlign: 'left', padding: '4px 3px', fontWeight: 700, color: '#000' } }, 'Məhsulun adı'),
+              React.createElement('th', { style: { textAlign: 'right', padding: '4px 3px', fontWeight: 700, color: '#000' } }, 'Miqdar'),
+              React.createElement('th', { style: { textAlign: 'right', padding: '4px 3px', fontWeight: 700, color: '#000' } }, 'Qiymət'),
+              React.createElement('th', { style: { textAlign: 'right', padding: '4px 3px', fontWeight: 700, color: '#000' } }, 'Məbləğ')
             )
           ),
           React.createElement('tbody', null,
             sale.items.map((item, i) =>
-              React.createElement('tr', { key: i, style: { borderBottom: '1px dashed #bbb' } },
-                React.createElement('td', { style: { padding: '5px 3px', fontSize: 13 } }, item.productName + (item.manualPrice ? ' ✏' : '')),
-                React.createElement('td', { style: { textAlign: 'right', padding: '5px 3px' } }, item.qty),
-                React.createElement('td', { style: { textAlign: 'right', padding: '5px 3px' } }, fmt.currency(item.price, cur)),
-                React.createElement('td', { style: { textAlign: 'right', padding: '5px 3px', fontWeight: 700 } }, fmt.currency(item.lineTotal, cur))
+              React.createElement('tr', { key: i, style: { borderBottom: '1px dashed #999' } },
+                React.createElement('td', { style: { padding: '5px 3px', fontSize: 13, color: '#000' } }, item.productName + (item.manualPrice ? ' ✏' : '')),
+                React.createElement('td', { style: { textAlign: 'right', padding: '5px 3px', color: '#000' } }, item.qty),
+                React.createElement('td', { style: { textAlign: 'right', padding: '5px 3px', color: '#000' } }, fmt.currency(item.price, cur)),
+                React.createElement('td', { style: { textAlign: 'right', padding: '5px 3px', fontWeight: 700, color: '#000' } }, fmt.currency(item.lineTotal, cur))
               )
             )
           )
