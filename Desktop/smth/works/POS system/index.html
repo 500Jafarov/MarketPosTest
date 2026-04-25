@@ -1620,12 +1620,13 @@ function AppProvider({ children }) {
   const deleteTransfer = useCallback((id) => { setTransfers(prev => prev.filter(x => x.id !== id)); }, []);
   const clearAllTransfers = useCallback(() => { setTransfers([]); }, []);
 
-  // Transfer: Depo → Market (Bug 3 fix: Firestore'a yaz)
-  const transferToShop = useCallback((items, note, user) => {
+  // Transfer: Depo → Market (supports multiple warehouses)
+  const transferToShop = useCallback((items, note, user, whIdx = 0) => {
+    const stockKey = whIdx === 0 ? 'warehouseStock' : 'warehouse' + (whIdx + 1) + 'Stock';
     for (const item of items) {
       const p = products.find(x => x.id === item.productId);
       if (!p) return { ok: false, error: `Ürün bulunamadı.` };
-      if ((p.warehouseStock || 0) < item.qty) return { ok: false, error: `Depoda yetersiz stok: ${p.name} (Depo: ${p.warehouseStock || 0})` };
+      if ((p[stockKey] || 0) < item.qty) return { ok: false, error: `Depoda yetersiz stok: ${p.name} (Depo: ${p[stockKey] || 0})` };
     }
     // Güncellenmiş ürünleri hesapla
     const updatedProds = {};
@@ -1634,7 +1635,7 @@ function AppProvider({ children }) {
       if (!item) return p;
       const updated = {
         ...p,
-        warehouseStock: (p.warehouseStock || 0) - item.qty,
+        [stockKey]: (p[stockKey] || 0) - item.qty,
         stock: (p.stock || 0) + item.qty,
         updatedAt: new Date().toISOString(),
       };
@@ -1662,12 +1663,12 @@ function AppProvider({ children }) {
     return { ok: true, transfer };
   }, [products]);
 
-  // Warehouse stock direct update (admin)
-  // Bug 3+4 fix: local state + Firestore'a yaz → refresh sonrası kaybolmaz
-  const updateWarehouseStock = useCallback((productId, qty) => {
+  // Warehouse stock direct update (admin) - supports multiple warehouses
+  const updateWarehouseStock = useCallback((productId, qty, whIdx = 0) => {
     const prod = products.find(p => p.id === productId);
     if (!prod) return;
-    const updated = { ...prod, warehouseStock: qty, updatedAt: new Date().toISOString() };
+    const stockKey = whIdx === 0 ? 'warehouseStock' : 'warehouse' + (whIdx + 1) + 'Stock';
+    const updated = { ...prod, [stockKey]: qty, updatedAt: new Date().toISOString() };
     setProducts(prev => prev.map(p => p.id === productId ? updated : p));
     fbSaveProduct(updated).catch(err => console.error('[FB] updateWarehouseStock:', err));
   }, [products]);
@@ -4245,8 +4246,7 @@ function WarehousePage() {
   const handleUpdate = (p) => {
     const v = parseInt(editVal);
     if (isNaN(v) || v < 0) { addToast('Geçersiz miktar', 'error'); return; }
-    const updated = { ...p, [stockKey]: v, updatedAt: new Date().toISOString() };
-    saveProduct(updated);
+    updateWarehouseStock(p.id, v, activeWhIdx);
     setEditId(null);
     addToast(`${p.name} — ${warehouses[activeWhIdx]?.name} stoku yeniləndi: ${v}`, 'success');
   };
@@ -4365,12 +4365,17 @@ function TransferPage() {
   const [activeTab, setActiveTab] = useState('new');
   const [search, setSearch] = useState('');
   const [filterCat, setFilterCat] = useState('');
-  const [cart, setCart] = useState({}); // { productId: qty }
+  const [cart, setCart] = useState({});
   const [note, setNote] = useState('');
   const [searchTransfer, setSearchTransfer] = useState('');
   const [showClearTransfer, setShowClearTransfer] = useState(false);
   const [clearConfirmed, setClearConfirmed] = useState(false);
   const cur = settings.currency || '₼';
+
+  const warehouses = (settings.warehouses && settings.warehouses.length > 0) ? settings.warehouses : [{ id: 'wh1', name: 'Anbar 1' }];
+  const [activeWhIdx, setActiveWhIdx] = useState(0);
+  const getStockKey = (idx) => idx === 0 ? 'warehouseStock' : 'warehouse' + (idx + 1) + 'Stock';
+  const stockKey = getStockKey(activeWhIdx);
 
   const activeProducts = products.filter(p => p.active);
   const filtered = activeProducts.filter(p => {
@@ -4381,7 +4386,7 @@ function TransferPage() {
 
   const cartItems = Object.entries(cart).filter(([, qty]) => qty > 0).map(([id, qty]) => {
     const p = products.find(x => x.id === id);
-    return p ? { productId: id, productName: p.name, sku: p.sku, qty, warehouseStock: p.warehouseStock || 0, emoji: p.emoji } : null;
+    return p ? { productId: id, productName: p.name, sku: p.sku, qty, warehouseStock: p[stockKey] || 0, emoji: p.emoji } : null;
   }).filter(Boolean);
 
   const setQty = (productId, qty) => {
@@ -4389,14 +4394,14 @@ function TransferPage() {
   };
 
   const handleTransfer = () => {
-    if (cartItems.length === 0) { addToast('Transfer listesi boş!', 'error'); return; }
+    if (cartItems.length === 0) { addToast('Transfer listesi bos!', 'error'); return; }
     const items = cartItems.map(i => ({ productId: i.productId, qty: i.qty }));
-    const result = transferToShop(items, note, currentUser);
+    const result = transferToShop(items, note, currentUser, activeWhIdx);
     if (!result.ok) { addToast(result.error, 'error'); return; }
     setCart({});
     setNote('');
     setActiveTab('history');
-    addToast(`Transfer tamamlandı! ${cartItems.length} ürün markete taşındı.`, 'success');
+    addToast(`Transfer tamamlandi! ${cartItems.length} urun markete tasindi.`, 'success');
   };
 
   const getCatName = id => { const c = categories.find(x => x.id === id); return c ? c.name : '-'; };
@@ -4420,6 +4425,14 @@ function TransferPage() {
       ),
 
       activeTab === 'new' && React.createElement('div', { className: 'transfer-layout', style: { display: 'flex', gap: 16 } },
+        // Anbar secimi
+        warehouses.length > 1 && React.createElement('div', { style: { display: 'flex', gap: 8, marginBottom: 12 } },
+          warehouses.map((wh, idx) => React.createElement('button', {
+            key: wh.id,
+            className: 'btn btn-sm ' + (activeWhIdx === idx ? 'btn-primary' : 'btn-secondary'),
+            onClick: () => setActiveWhIdx(idx)
+          }, (activeWhIdx === idx ? '✓ ' : '') + wh.name))
+        ),
         // Product selection
         React.createElement('div', { style: { flex: 1, minWidth: 0 } },
           React.createElement('div', { className: 'filter-row' },
@@ -4442,7 +4455,7 @@ function TransferPage() {
                   React.createElement('th', null, 'Transfer Miktarı')
                 )),
                 React.createElement('tbody', null, filtered.map(p => {
-                  const ws = p.warehouseStock || 0;
+                  const ws = p[stockKey] || 0;
                   const qty = cart[p.id] || 0;
                   return React.createElement('tr', { key: p.id },
                     React.createElement('td', null,
