@@ -5452,6 +5452,15 @@ function SettingsPage() {
         // Sütun adlarını normallaşdır (lowercase + boşluqsuz)
         const norm = (s) => String(s || '').toLowerCase().replace(/\s+/g, '');
 
+        // Kateqoriya adı → id xəritəsi (avtomatik yaradılır)
+        const catMap = {};
+        const getCatId = (name) => {
+          const key = String(name || '').trim();
+          if (!key) return '';
+          if (!catMap[key]) catMap[key] = 'xcat_' + Date.now() + '_' + Object.keys(catMap).length;
+          return catMap[key];
+        };
+
         const products = rows.map((row, idx) => {
           const get = (...keys) => {
             for (const k of Object.keys(row)) {
@@ -5459,12 +5468,13 @@ function SettingsPage() {
             }
             return '';
           };
+          const catName = String(get('kateqoriya','kategori','category','cat','qrup','group') || '').trim();
           return {
             id: 'xls_' + Date.now() + '_' + idx,
             name:           String(get('ad','name','məhsul','mehsul','product') || '').trim(),
             sku:            String(get('sku','kod','code','artikul') || '').trim(),
             barcode:        String(get('barcode','barkod','ştrihkod') || '').trim(),
-            categoryId:     '',
+            categoryId:     getCatId(catName),
             brand:          String(get('brand','marka','brend') || '').trim(),
             purchasePrice:  parseFloat(get('alışqiyməti','alış','purchaseprice','costprice','maya') || 0) || 0,
             retailPrice:    parseFloat(get('satışqiyməti','satış','retailprice','price','qiymət') || 0) || 0,
@@ -5485,13 +5495,16 @@ function SettingsPage() {
 
         if (!products.length) { addToast('Məhsul adı olan sətir tapılmadı. "Ad/Name/Məhsul" sütununu yoxlayın.', 'error'); return; }
 
+        // catMap-dən categories array yarat
+        const categories = Object.entries(catMap).map(([name, id]) => ({ id, name, icon: '📦' }));
+
         const data = {
           exportedAt:  new Date().toISOString(),
           exportedBy:  'Excel Import',
           storeName:   '',
           products,
           sales:       [],
-          categories:  [],
+          categories,
           customers:   [],
           returns:     [],
         };
@@ -5503,7 +5516,7 @@ function SettingsPage() {
           saleCount:     0,
           customerCount: 0,
         });
-        addToast(products.length + ' məhsul Excel-dən oxundu. Bərpa üçün təsdiq edin.', 'info');
+        addToast(products.length + ' məhsul, ' + categories.length + ' kateqoriya Excel-dən oxundu. Bərpa üçün təsdiq edin.', 'info');
       } catch (err) {
         console.error('[ExcelImport]', err);
         addToast('Excel oxuna bilmədi: ' + err.message, 'error');
