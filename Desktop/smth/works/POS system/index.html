@@ -4227,16 +4227,20 @@ function WarehousePage() {
     const matchC = !filterCat || p.categoryId === filterCat;
     const ws = p[stockKey] || 0;
     const mws = p.minWarehouseStock || 10;
+    // Anbar 2+ üçün: həmin anbara heç vaxt stok əlavə edilməmiş məhsulları gizlət
+    const matchWh = activeWhIdx === 0 || p[stockKey] !== undefined;
     const matchF = !filterStatus
       || (filterStatus === 'out' && ws === 0)
       || (filterStatus === 'low' && ws > 0 && ws <= mws)
       || (filterStatus === 'ok' && ws > mws);
-    return matchS && matchC && matchF;
+    return matchS && matchC && matchF && matchWh;
   });
 
-  const outCount = products.filter(p => (p[stockKey] || 0) === 0).length;
-  const lowCount = products.filter(p => { const ws = p[stockKey]||0; return ws > 0 && ws <= (p.minWarehouseStock||10); }).length;
-  const totalWarehouse = products.reduce((a, p) => a + (p[stockKey]||0), 0);
+  // Anbar 2+ üçün yalnız həmin anbara aid məhsulları say
+  const whProducts = activeWhIdx === 0 ? products : products.filter(p => p[stockKey] !== undefined);
+  const outCount = whProducts.filter(p => (p[stockKey] || 0) === 0).length;
+  const lowCount = whProducts.filter(p => { const ws = p[stockKey]||0; return ws > 0 && ws <= (p.minWarehouseStock||10); }).length;
+  const totalWarehouse = whProducts.reduce((a, p) => a + (p[stockKey]||0), 0);
 
   const handleUpdate = (p) => {
     const v = parseInt(editVal);
