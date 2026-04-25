@@ -2862,9 +2862,25 @@ const QZPrinter = {
     if (sale.customerName)  data += padLR('Mustəri:', t(sale.customerName));
     if (sale.customerPhone) data += padLR('Telefon:', sale.customerPhone);
     data += DASHED;
+    // Cədvəl başlığı: Ad(24) Miq(6) Qiy(9) Məb(9)
+    const colW = [24, 6, 9, 9];
+    const padR = function(s, w){ s = String(s); return s.length >= w ? s.slice(0,w) : s + ' '.repeat(w - s.length); };
+    const padL = function(s, w){ s = String(s); return s.length >= w ? s.slice(0,w) : ' '.repeat(w - s.length) + s; };
+    data += BOLD_ON + padR(t('Ad'), colW[0]) + padL(t('Miq'), colW[1]) + padL(t('Qiymət'), colW[2]) + padL(t('Məbləğ'), colW[3]) + NL + BOLD_OFF;
+    data += '-'.repeat(48) + NL;
     sale.items.forEach(function(item) {
-      data += BOLD_ON + t(item.productName).slice(0, 32) + BOLD_OFF + NL;
-      data += padLR('  ' + item.qty + ' x ' + fmtN(item.price), fmtN(item.lineTotal));
+      const name = t(item.productName);
+      const qty  = String(item.qty);
+      const price = fmtN(item.price);
+      const total = fmtN(item.lineTotal);
+      // Uzun adları ikinci sətirə keç
+      if (name.length <= colW[0]) {
+        data += padR(name, colW[0]) + padL(qty, colW[1]) + padL(price, colW[2]) + BOLD_ON + padL(total, colW[3]) + BOLD_OFF + NL;
+      } else {
+        data += name.slice(0, 48) + NL;
+        data += padR('', colW[0]) + padL(qty, colW[1]) + padL(price, colW[2]) + BOLD_ON + padL(total, colW[3]) + BOLD_OFF + NL;
+      }
+      data += '-'.repeat(48) + NL;
     });
     data += SOLID;
     if (sale.discount > 0) data += padLR('Endirim:', '-' + fmtN(sale.discount));
