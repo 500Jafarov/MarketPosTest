@@ -3582,12 +3582,16 @@ function ProductModal({ product, categories, settings, onSave, onClose }) {
   const warehouses = (settings && settings.warehouses && settings.warehouses.length > 0)
     ? settings.warehouses
     : [{ id: 'wh1', name: 'Anbar 1' }];
-  const [form, setForm] = useState(product || {
-    name: '', sku: '', barcode: '', categoryId: '', brand: '',
-    purchasePrice: '', retailPrice: '', wholesalePrice: '',
-    stock: '', minStock: 10,
-    unit: 'adet', description: '', active: true, image: null, emoji: '📦'
-  });
+  const defaultWhId = warehouses[0]?.id || 'wh1';
+  const [form, setForm] = useState(product
+    ? { ...product, warehouseId: product.warehouseId || defaultWhId }
+    : {
+        name: '', sku: '', barcode: '', categoryId: '', brand: '',
+        purchasePrice: '', retailPrice: '', wholesalePrice: '',
+        stock: '', minStock: 10, warehouseId: defaultWhId,
+        unit: 'adet', description: '', active: true, image: null, emoji: '📦'
+      }
+  );
   const [errors, setErrors] = useState({});
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
