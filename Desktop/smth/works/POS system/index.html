@@ -3550,11 +3550,14 @@ function ProductModal({ product, categories, settings, onSave, onClose }) {
   const warehouses = (settings && settings.warehouses && settings.warehouses.length > 0)
     ? settings.warehouses
     : [{ id: 'wh1', name: 'Anbar 1' }];
+  const [selectedWhIdx, setSelectedWhIdx] = useState(0);
+  const getStockKey = (idx) => idx === 0 ? 'warehouseStock' : 'warehouse' + (idx + 1) + 'Stock';
+  const stockKey = getStockKey(selectedWhIdx);
+  
   const [form, setForm] = useState(product || {
     name: '', sku: '', barcode: '', categoryId: '', brand: '',
     purchasePrice: '', retailPrice: '', wholesalePrice: '',
     stock: '', minStock: 10,
-    warehouseStock: '', minWarehouseStock: 10,
     unit: 'adet', description: '', active: true, image: null, emoji: '📦'
   });
   const [errors, setErrors] = useState({});
@@ -3598,12 +3601,6 @@ function ProductModal({ product, categories, settings, onSave, onClose }) {
 
   const handleSubmit = () => {
     if (!validate()) return;
-    // Bütün anbar stok sahələrini dinamik yığ
-    const whStockFields = {};
-    warehouses.forEach((wh, idx) => {
-      const key = idx === 0 ? 'warehouseStock' : 'warehouse' + (idx + 1) + 'Stock';
-      whStockFields[key] = +form[key] || 0;
-    });
     onSave({
       ...form,
       retailPrice: +form.retailPrice,
@@ -3611,8 +3608,7 @@ function ProductModal({ product, categories, settings, onSave, onClose }) {
       purchasePrice: +form.purchasePrice || 0,
       stock: +form.stock || 0,
       minStock: +form.minStock || 10,
-      minWarehouseStock: +form.minWarehouseStock || 10,
-      ...whStockFields,
+      [stockKey]: +form[stockKey] || 0,
     });
   };
 
@@ -3744,15 +3740,19 @@ function ProductModal({ product, categories, settings, onSave, onClose }) {
                   )
                 )
               ),
-              // Dinamik anbarlar
-              React.createElement('div', { style: { display: 'flex', flexDirection: 'column', gap: 8 } },
-                warehouses.map((wh, idx) => {
-                  const stockKey = idx === 0 ? 'warehouseStock' : 'warehouse' + (idx + 1) + 'Stock';
-                  return React.createElement('div', { key: wh.id, style: { background: 'var(--blue-dim)', border: '1px solid rgba(59,130,246,0.2)', borderRadius: 8, padding: '10px 12px' } },
-                    React.createElement('div', { style: { fontSize: 11, fontWeight: 700, color: 'var(--blue)', fontFamily: 'var(--mono)', marginBottom: 6 } }, '🏭 ' + wh.name),
-                    React.createElement('input', { className: 'form-control', type: 'number', min: 0, value: form[stockKey] || '', onChange: e => set(stockKey, e.target.value), placeholder: '0' })
-                  );
-                })
+              // Secilmis anbar only
+              React.createElement('div', { style: { background: 'var(--blue-dim)', border: '1px solid rgba(59,130,246,0.2)', borderRadius: 8, padding: '10px 12px' } },
+                React.createElement('div', { style: { fontSize: 11, fontWeight: 700, color: 'var(--blue)', fontFamily: 'var(--mono)', marginBottom: 6 } }, '🏭 ' + warehouses[selectedWhIdx].name),
+                warehouses.length > 1 && React.createElement('div', { style: { display: 'flex', gap: 4, marginBottom: 6, flexWrap: 'wrap' } },
+                  warehouses.map((wh, idx) => React.createElement('button', {
+                    key: wh.id,
+                    type: 'button',
+                    className: 'btn btn-sm ' + (selectedWhIdx === idx ? 'btn-primary' : 'btn-secondary'),
+                    onClick: () => setSelectedWhIdx(idx),
+                    style: { padding: '3px 8px', fontSize: 11 }
+                  }, (selectedWhIdx === idx ? '✓ ' : '') + wh.name))
+                ),
+                React.createElement('input', { className: 'form-control', type: 'number', min: 0, value: form[stockKey] || '', onChange: e => set(stockKey, e.target.value), placeholder: '0' })
               )
             ),
             // Birim
