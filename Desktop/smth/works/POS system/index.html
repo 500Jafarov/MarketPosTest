@@ -2146,6 +2146,7 @@ function POSPage() {
   const [editPriceVal, setEditPriceVal] = useState('');
   const [cashReceived, setCashReceived] = useState('');
   const [isCredit, setIsCredit] = useState(false);
+  const [showPayment, setShowPayment] = useState(false);
   const barcodeRef = useRef(null);
   const barcodeBuffer = useRef('');       // accumulates chars from scanner
   const barcodeTimer = useRef(null);      // clears buffer after pause
@@ -2480,23 +2481,6 @@ function POSPage() {
                   onClick: () => setIsCredit(v => !v)
                 }, isCredit ? '🔴 Borça satılır' : '💳 Borca sat')
               ),
-              !isCredit && React.createElement('div', { className: 'cash-change-panel' },
-                React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 6 } },
-                  React.createElement('span', { style: { fontSize: 12, color: 'var(--text3)', whiteSpace: 'nowrap' } }, 'Alınan məbləğ:'),
-                  React.createElement('input', {
-                    className: 'form-control qty-input',
-                    type: 'number', min: 0, step: '0.01',
-                    style: { fontSize: 13 },
-                    value: cashReceived,
-                    onChange: e => setCashReceived(e.target.value),
-                    placeholder: fmt.currency(Math.max(0, total), cur),
-                  })
-                ),
-                change !== null && React.createElement('div', { className: 'cash-change-result', style: { color: change >= 0 ? 'var(--green)' : 'var(--red)' } },
-                  React.createElement('span', null, change >= 0 ? 'Qaytarılacaq:' : 'Çatışmır:'),
-                  React.createElement('span', { style: { fontFamily: 'var(--mono)' } }, fmt.currency(Math.abs(change), cur))
-                )
-              ),
               React.createElement('button', {
                 className: 'btn btn-primary btn-lg',
                 style: {
@@ -2505,9 +2489,9 @@ function POSPage() {
                   marginTop: 10,
                   ...(isCredit ? { background: '#dc2626', boxShadow: '0 4px 12px rgba(220,38,38,0.4)' } : {}),
                 },
-                onClick: handleCompleteSale,
+                onClick: () => isCredit ? handleCompleteSale() : setShowPayment(true),
                 disabled: cart.length === 0
-              }, isCredit ? `⚠ Borça sat — ${fmt.currency(Math.max(0, total), cur)}` : `✓ Satışı Tamamla — ${fmt.currency(Math.max(0, total), cur)}`)
+              }, isCredit ? `⚠ Borça sat — ${fmt.currency(Math.max(0, total), cur)}` : `💵 Ödəniş — ${fmt.currency(Math.max(0, total), cur)}`)
             )
           )
         )
@@ -2648,23 +2632,6 @@ function POSPage() {
                 onClick: () => setIsCredit(v => !v)
               }, isCredit ? '🔴 Borça satılır' : '💳 Borca sat')
             ),
-            !isCredit && React.createElement('div', { className: 'cash-change-panel' },
-              React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 6 } },
-                React.createElement('span', { style: { fontSize: 13, color: 'var(--text3)', whiteSpace: 'nowrap' } }, 'Alınan məbləğ:'),
-                React.createElement('input', {
-                  className: 'form-control qty-input',
-                  type: 'number', min: 0, step: '0.01',
-                  style: { fontSize: 14 },
-                  value: cashReceived,
-                  onChange: e => setCashReceived(e.target.value),
-                  placeholder: fmt.currency(Math.max(0, total), cur),
-                })
-              ),
-              change !== null && React.createElement('div', { className: 'cash-change-result', style: { color: change >= 0 ? 'var(--green)' : 'var(--red)' } },
-                React.createElement('span', null, change >= 0 ? 'Qaytarılacaq:' : 'Çatışmır:'),
-                React.createElement('span', { style: { fontFamily: 'var(--mono)', fontSize: 17 } }, fmt.currency(Math.abs(change), cur))
-              )
-            ),
             React.createElement('button', {
               className: 'btn btn-primary btn-lg',
               style: {
@@ -2675,15 +2642,121 @@ function POSPage() {
                 fontSize: 16,
                 ...(isCredit ? { background: '#dc2626', boxShadow: '0 4px 12px rgba(220,38,38,0.4)' } : {}),
               },
-              onClick: () => { handleCompleteSale(); setCartDrawerOpen(false); },
+              onClick: () => { if (isCredit) { handleCompleteSale(); setCartDrawerOpen(false); } else { setShowPayment(true); setCartDrawerOpen(false); } },
               disabled: cart.length === 0
-            }, isCredit ? `⚠ Borça sat — ${fmt.currency(Math.max(0, total), cur)}` : `✓ Satışı Tamamla — ${fmt.currency(Math.max(0, total), cur)}`)
+            }, isCredit ? `⚠ Borça sat — ${fmt.currency(Math.max(0, total), cur)}` : `💵 Ödəniş — ${fmt.currency(Math.max(0, total), cur)}`)
           )
         )
       )
     ),
 
-    showReceipt && completedSale && React.createElement(ReceiptModal, { sale: completedSale, onClose: () => setShowReceipt(false), settings })
+    showReceipt && completedSale && React.createElement(ReceiptModal, { sale: completedSale, onClose: () => setShowReceipt(false), settings }),
+
+    showPayment && React.createElement(PaymentModal, {
+      total: Math.max(0, total),
+      cur,
+      onCancel: () => setShowPayment(false),
+      onConfirm: (received) => {
+        setCashReceived(received > 0 ? String(received) : '');
+        setShowPayment(false);
+        setTimeout(handleCompleteSale, 0);
+      }
+    })
+  );
+}
+
+// ============================================================
+// PAYMENT MODAL — Nağd ödəniş və qaytarılacaq hesablama
+// ============================================================
+function PaymentModal({ total, cur, onCancel, onConfirm }) {
+  const [received, setReceived] = React.useState('');
+  const inputRef = React.useRef(null);
+
+  React.useEffect(() => { setTimeout(() => inputRef.current?.focus(), 100); }, []);
+
+  const receivedNum = parseFloat(received) || 0;
+  const change = receivedNum > 0 ? receivedNum - total : null;
+  const isShort = change !== null && change < 0;
+  const isOk    = change !== null && change >= 0;
+
+  const quickAmounts = [
+    Math.ceil(total),
+    Math.ceil(total / 5) * 5,
+    Math.ceil(total / 10) * 10,
+    Math.ceil(total / 20) * 20,
+  ].filter((v, i, a) => v >= total && a.indexOf(v) === i).slice(0, 4);
+
+  const handleKey = (e) => { if (e.key === 'Enter' && isOk) onConfirm(receivedNum); };
+
+  return React.createElement(Modal, { show: true, onClose: onCancel, title: '💵 Nağd Ödəniş' },
+    React.createElement('div', { className: 'modal-body' },
+
+      // Cəmi
+      React.createElement('div', { style: { textAlign: 'center', marginBottom: 20 } },
+        React.createElement('div', { style: { fontSize: 13, color: 'var(--text2)', marginBottom: 4 } }, 'Ödəniləcək məbləğ'),
+        React.createElement('div', { style: { fontSize: 36, fontWeight: 800, color: 'var(--accent)', letterSpacing: 1 } },
+          cur + total.toLocaleString('az-AZ', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+        )
+      ),
+
+      // Sürətli məbləğ düymələri
+      quickAmounts.length > 1 && React.createElement('div', { style: { display: 'flex', gap: 8, marginBottom: 14, flexWrap: 'wrap' } },
+        quickAmounts.map(amt => React.createElement('button', {
+          key: amt,
+          className: 'btn btn-secondary',
+          style: { flex: 1, minWidth: 60, justifyContent: 'center', fontWeight: 700, fontSize: 15 },
+          onClick: () => setReceived(String(amt))
+        }, cur + amt))
+      ),
+
+      // Alınan məbləğ inputu
+      React.createElement('div', { className: 'form-group', style: { marginBottom: 16 } },
+        React.createElement('label', { className: 'form-label', style: { fontSize: 14 } }, 'Müştərinin verdiyi məbləğ'),
+        React.createElement('input', {
+          ref: inputRef,
+          className: 'form-control',
+          type: 'number', min: 0, step: '0.01',
+          style: { fontSize: 24, fontWeight: 700, textAlign: 'center', height: 56 },
+          value: received,
+          onChange: e => setReceived(e.target.value),
+          onKeyDown: handleKey,
+          placeholder: '0.00',
+        })
+      ),
+
+      // Qaytarılacaq / çatışmır
+      change !== null && React.createElement('div', { style: {
+        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+        padding: '14px 18px', borderRadius: 10, marginBottom: 20,
+        background: isOk ? 'rgba(34,197,94,0.12)' : 'rgba(220,38,38,0.1)',
+        border: '1px solid ' + (isOk ? 'rgba(34,197,94,0.3)' : 'rgba(220,38,38,0.3)'),
+      } },
+        React.createElement('span', { style: { fontSize: 16, fontWeight: 600, color: isOk ? 'var(--green)' : 'var(--red)' } },
+          isOk ? '✅ Qaytarılacaq:' : '❌ Çatışmır:'
+        ),
+        React.createElement('span', { style: { fontSize: 28, fontWeight: 800, color: isOk ? 'var(--green)' : 'var(--red)' } },
+          cur + Math.abs(change).toLocaleString('az-AZ', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+        )
+      ),
+
+      // Düymələr
+      React.createElement('div', { style: { display: 'flex', gap: 10 } },
+        React.createElement('button', { className: 'btn btn-secondary', style: { flex: 1, justifyContent: 'center' }, onClick: onCancel }, 'Ləğv et'),
+        React.createElement('button', {
+          className: 'btn btn-primary',
+          style: { flex: 2, justifyContent: 'center', fontSize: 16, fontWeight: 700, opacity: isOk ? 1 : 0.5 },
+          disabled: !isOk,
+          onClick: () => onConfirm(receivedNum)
+        }, '✓ Satışı Tamamla')
+      ),
+
+      // Məbləgsiz tamamla
+      React.createElement('button', {
+        className: 'btn',
+        style: { width: '100%', justifyContent: 'center', marginTop: 8, fontSize: 12, color: 'var(--text3)' },
+        onClick: () => onConfirm(0)
+      }, 'Məbləğ daxil etmədən tamamla')
+    )
   );
 }
 
