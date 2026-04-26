@@ -4239,21 +4239,13 @@ function WarehousePage() {
   const { products, categories, settings } = useApp();
   const [search, setSearch] = useState('');
   const [filterCat, setFilterCat] = useState('');
-  const [activeWhId, setActiveWhId] = useState('all');
-
-  const warehouses = (settings.warehouses && settings.warehouses.length > 0)
-    ? settings.warehouses : [{ id: 'wh1', name: 'Anbar 1' }];
-
-  const getWhName = id => warehouses.find(w => w.id === id)?.name || 'Anbar 1';
   const getCatName = id => { const c = categories.find(x => x.id === id); return c ? c.name : '-'; };
 
   const filtered = products.filter(p => {
     const q = search.toLowerCase();
     const matchS = !q || p.name.toLowerCase().includes(q) || (p.sku||'').toLowerCase().includes(q);
     const matchC = !filterCat || p.categoryId === filterCat;
-    const pWhId = p.warehouseId || warehouses[0]?.id;
-    const matchWh = activeWhId === 'all' || pWhId === activeWhId;
-    return matchS && matchC && matchWh;
+    return matchS && matchC;
   });
 
   return React.createElement('div', null,
@@ -4264,17 +4256,6 @@ function WarehousePage() {
       )
     ),
     React.createElement('div', { className: 'page-body' },
-      React.createElement('div', { style: { display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' } },
-        React.createElement('button', {
-          className: 'btn ' + (activeWhId === 'all' ? 'btn-primary' : 'btn-secondary'),
-          onClick: () => setActiveWhId('all')
-        }, 'Hamısı'),
-        warehouses.map(wh => React.createElement('button', {
-          key: wh.id,
-          className: 'btn ' + (activeWhId === wh.id ? 'btn-primary' : 'btn-secondary'),
-          onClick: () => setActiveWhId(wh.id)
-        }, '🏭 ' + wh.name))
-      ),
       React.createElement('div', { className: 'filter-row' },
         React.createElement('div', { className: 'search-bar', style: { flex: 1 } },
           React.createElement('span', { className: 'search-icon' }, '🔍'),
@@ -4291,8 +4272,7 @@ function WarehousePage() {
             React.createElement('thead', null, React.createElement('tr', null,
               React.createElement('th', null, 'Məhsul'),
               React.createElement('th', null, 'Kateqoriya'),
-              React.createElement('th', null, 'SKU'),
-              React.createElement('th', null, 'Anbar')
+              React.createElement('th', null, 'SKU')
             )),
             React.createElement('tbody', null, filtered.map(p =>
               React.createElement('tr', { key: p.id },
@@ -4303,13 +4283,7 @@ function WarehousePage() {
                   )
                 ),
                 React.createElement('td', { style: { color: 'var(--text3)', fontSize: 12 } }, getCatName(p.categoryId)),
-                React.createElement('td', { className: 'fw-mono', style: { fontSize: 12 } }, p.sku),
-                React.createElement('td', null,
-                  React.createElement('span', {
-                    className: 'badge badge-blue',
-                    style: { fontSize: 12 }
-                  }, '🏭 ' + getWhName(p.warehouseId || warehouses[0]?.id))
-                )
+                React.createElement('td', { className: 'fw-mono', style: { fontSize: 12 } }, p.sku)
               )
             ))
           )
