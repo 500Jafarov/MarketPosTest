@@ -5924,41 +5924,6 @@ function SettingsPage() {
           )
         ),
 
-        // ── ANBAR İDARƏETMƏSİ ────────────────────────
-        React.createElement('div', { className: 'card', style: { marginBottom: 16 } },
-          React.createElement('div', { className: 'card-header' }, React.createElement('span', { className: 'card-title' }, '🏭 Anbarlar')),
-          React.createElement('div', { style: { fontSize: 13, color: 'var(--text2)', marginBottom: 12 } }, 'Anbar əlavə edin, adlandırın. Hər anbar üçün məhsul stoku ayrıca izlənilir.'),
-          (form.warehouses || [{ id: 'wh1', name: 'Anbar 1' }]).map((wh, idx) =>
-            React.createElement('div', { key: wh.id, style: { display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8 } },
-              React.createElement('span', { style: { fontSize: 18 } }, '🏭'),
-              React.createElement('input', {
-                className: 'form-control',
-                value: wh.name,
-                onChange: e => {
-                  const updated = (form.warehouses || []).map((w, i) => i === idx ? { ...w, name: e.target.value } : w);
-                  set('warehouses', updated);
-                },
-                placeholder: 'Anbar adı',
-                style: { flex: 1 }
-              }),
-              (form.warehouses || []).length > 1 && React.createElement('button', {
-                className: 'btn btn-danger',
-                style: { padding: '6px 12px', fontSize: 13 },
-                onClick: () => set('warehouses', (form.warehouses || []).filter((_, i) => i !== idx))
-              }, '🗑')
-            )
-          ),
-          React.createElement('button', {
-            className: 'btn btn-secondary',
-            style: { marginTop: 4 },
-            onClick: () => {
-              const newId = 'wh' + Date.now();
-              const count = (form.warehouses || []).length + 1;
-              set('warehouses', [...(form.warehouses || []), { id: newId, name: 'Anbar ' + count }]);
-            }
-          }, '+ Anbar əlavə et')
-        ),
-
         // ── BARKOD ETİKET ÖLÇÜİ ────────────────────────
         React.createElement('div', { className: 'card', style: { marginBottom: 16 } },
           React.createElement('div', { className: 'card-header' }, React.createElement('span', { className: 'card-title' }, '🏷️ Barkod Etiket Ölçüsü')),
