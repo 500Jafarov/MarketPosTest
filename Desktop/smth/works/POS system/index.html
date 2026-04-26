@@ -2704,14 +2704,11 @@ function POSPage() {
     showPayment && React.createElement(PaymentModal, {
       total: Math.max(0, total),
       cur,
-      warehouses,
-      selectedWarehouseId,
-      onWarehouseChange: setSelectedWarehouseId,
       onCancel: () => setShowPayment(false),
-      onConfirm: (received, whId) => {
+      onConfirm: (received) => {
         setCashReceived(received > 0 ? String(received) : '');
         setShowPayment(false);
-        setTimeout(() => handleCompleteSale(whId), 0);
+        setTimeout(() => handleCompleteSale(), 0);
       }
     })
   );
@@ -2720,11 +2717,9 @@ function POSPage() {
 // ============================================================
 // PAYMENT MODAL — Nağd ödəniş və qaytarılacaq hesablama
 // ============================================================
-function PaymentModal({ total, cur, warehouses, selectedWarehouseId, onWarehouseChange, onCancel, onConfirm }) {
+function PaymentModal({ total, cur, onCancel, onConfirm }) {
   const [received, setReceived] = React.useState('');
   const inputRef = React.useRef(null);
-  const whs = (warehouses && warehouses.length > 0) ? warehouses : [{ id: 'wh1', name: 'Anbar 1' }];
-  const [whId, setWhId] = React.useState(selectedWarehouseId || whs[0]?.id);
 
   React.useEffect(() => { setTimeout(() => inputRef.current?.focus(), 100); }, []);
 
@@ -2740,7 +2735,7 @@ function PaymentModal({ total, cur, warehouses, selectedWarehouseId, onWarehouse
     Math.ceil(total / 20) * 20,
   ].filter((v, i, a) => v >= total && a.indexOf(v) === i).slice(0, 4);
 
-  const handleKey = (e) => { if (e.key === 'Enter' && isOk) onConfirm(receivedNum, whId); };
+  const handleKey = (e) => { if (e.key === 'Enter' && isOk) onConfirm(receivedNum); };
 
   return React.createElement(Modal, { show: true, onClose: onCancel, title: '💵 Nağd Ödəniş' },
     React.createElement('div', { className: 'modal-body' },
@@ -2750,19 +2745,6 @@ function PaymentModal({ total, cur, warehouses, selectedWarehouseId, onWarehouse
         React.createElement('div', { style: { fontSize: 13, color: 'var(--text2)', marginBottom: 4 } }, 'Ödəniləcək məbləğ'),
         React.createElement('div', { style: { fontSize: 36, fontWeight: 800, color: 'var(--accent)', letterSpacing: 1 } },
           cur + total.toLocaleString('az-AZ', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-        )
-      ),
-
-      // Anbar seçimi (birdən çox anbar varsa göstər)
-      whs.length > 1 && React.createElement('div', { className: 'form-group', style: { marginBottom: 14 } },
-        React.createElement('label', { className: 'form-label' }, '🏭 Satış hansı anbardandır?'),
-        React.createElement('div', { style: { display: 'flex', gap: 8, flexWrap: 'wrap' } },
-          whs.map(w => React.createElement('button', {
-            key: w.id,
-            className: 'btn ' + (whId === w.id ? 'btn-primary' : 'btn-secondary'),
-            style: { flex: 1, justifyContent: 'center', fontWeight: whId === w.id ? 700 : 400 },
-            onClick: () => { setWhId(w.id); if (onWarehouseChange) onWarehouseChange(w.id); }
-          }, w.name))
         )
       ),
 
@@ -2813,7 +2795,7 @@ function PaymentModal({ total, cur, warehouses, selectedWarehouseId, onWarehouse
           className: 'btn btn-primary',
           style: { flex: 2, justifyContent: 'center', fontSize: 16, fontWeight: 700, opacity: isOk ? 1 : 0.5 },
           disabled: !isOk,
-          onClick: () => onConfirm(receivedNum, whId)
+          onClick: () => onConfirm(receivedNum)
         }, '✓ Satışı Tamamla')
       ),
 
