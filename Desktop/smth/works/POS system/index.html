@@ -4166,8 +4166,8 @@ function WarehousePage() {
     const q = search.toLowerCase();
     const matchS = !q || p.name.toLowerCase().includes(q) || (p.sku||'').toLowerCase().includes(q);
     const matchC = !filterCat || p.categoryId === filterCat;
-    const ws = p.stock || 0;
-    const mws = p.minStock || 10;
+    const ws = p.warehouseStock || 0;
+    const mws = p.minWarehouseStock || 10;
     const matchF = !filterStatus
       || (filterStatus === 'out' && ws === 0)
       || (filterStatus === 'low' && ws > 0 && ws <= mws)
@@ -4178,9 +4178,9 @@ function WarehousePage() {
   const handleUpdate = (p) => {
     const v = parseInt(editVal);
     if (isNaN(v) || v < 0) { addToast('Yanlış miqdar', 'error'); return; }
-    saveProduct({ ...p, stock: v });
+    saveProduct({ ...p, warehouseStock: v });
     setEditId(null);
-    addToast(`${p.name} stoku yeniləndi: ${v}`, 'success');
+    addToast(`${p.name} anbar stoku yeniləndi: ${v}`, 'success');
   };
 
   return React.createElement('div', null,
@@ -4222,8 +4222,8 @@ function WarehousePage() {
               React.createElement('th', null, 'Əməliyyat')
             )),
             React.createElement('tbody', null, filtered.map(p => {
-              const ws = p.stock || 0;
-              const mws = p.minStock || 10;
+              const ws = p.warehouseStock || 0;
+              const mws = p.minWarehouseStock || 10;
               const statusOut = ws === 0;
               const statusLow = ws > 0 && ws <= mws;
               return React.createElement('tr', { key: p.id },
@@ -4253,7 +4253,7 @@ function WarehousePage() {
                   )
                 ),
                 React.createElement('td', null,
-                  React.createElement('button', { className: 'btn btn-ghost btn-sm', onClick: () => { setEditId(p.id); setEditVal(ws.toString()); } }, '✏️ Yenilə')
+                  React.createElement('button', { className: 'btn btn-ghost btn-sm', onClick: () => { setEditId(p.id); setEditVal((p.warehouseStock || 0).toString()); } }, '✏️ Yenilə')
                 )
               );
             }))
