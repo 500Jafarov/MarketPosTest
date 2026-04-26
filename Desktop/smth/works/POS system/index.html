@@ -3551,6 +3551,8 @@ function ProductModal({ product, categories, settings, onSave, onClose }) {
       purchasePrice: +form.purchasePrice || 0,
       stock: +form.stock || 0,
       minStock: +form.minStock || 10,
+      warehouseStock: +form.warehouseStock || 0,
+      minWarehouseStock: +form.minWarehouseStock || 10,
       warehouseId: form.warehouseId || warehouses[0]?.id || 'wh1',
     });
   };
@@ -3683,15 +3685,18 @@ function ProductModal({ product, categories, settings, onSave, onClose }) {
                   )
                 )
               ),
-              // Anbar seçimi — dropdown
+              // Anbar stoku
               React.createElement('div', { style: { background: 'var(--blue-dim)', border: '1px solid rgba(59,130,246,0.2)', borderRadius: 8, padding: '10px 12px' } },
-                React.createElement('div', { style: { fontSize: 11, fontWeight: 700, color: 'var(--blue)', fontFamily: 'var(--mono)', marginBottom: 8 } }, '🏭 Anbar'),
-                React.createElement('select', {
-                  className: 'form-control',
-                  value: form.warehouseId || warehouses[0]?.id || 'wh1',
-                  onChange: e => set('warehouseId', e.target.value)
-                },
-                  warehouses.map(wh => React.createElement('option', { key: wh.id, value: wh.id }, wh.name))
+                React.createElement('div', { style: { fontSize: 11, fontWeight: 700, color: 'var(--blue)', fontFamily: 'var(--mono)', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 5 } }, '🏭 Anbar Stoqu'),
+                React.createElement('div', { className: 'form-grid-2' },
+                  React.createElement('div', { className: 'form-group', style: { marginBottom: 0 } },
+                    React.createElement('label', { className: 'form-label' }, 'Mövcud'),
+                    React.createElement('input', { className: 'form-control', type: 'number', min: 0, value: form.warehouseStock || '', onChange: e => set('warehouseStock', e.target.value), placeholder: '0' })
+                  ),
+                  React.createElement('div', { className: 'form-group', style: { marginBottom: 0 } },
+                    React.createElement('label', { className: 'form-label' }, 'Min. Hədd'),
+                    React.createElement('input', { className: 'form-control', type: 'number', min: 0, value: form.minWarehouseStock || '', onChange: e => set('minWarehouseStock', e.target.value), placeholder: '10' })
+                  )
                 )
               )
             ),
