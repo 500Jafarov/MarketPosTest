@@ -2773,21 +2773,6 @@ function PaymentModal({ total, cur, onCancel, onConfirm }) {
         })
       ),
 
-      // Qaytarılacaq / çatışmır
-      change !== null && React.createElement('div', { style: {
-        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-        padding: '14px 18px', borderRadius: 10, marginBottom: 20,
-        background: isOk ? 'rgba(34,197,94,0.12)' : 'rgba(220,38,38,0.1)',
-        border: '1px solid ' + (isOk ? 'rgba(34,197,94,0.3)' : 'rgba(220,38,38,0.3)'),
-      } },
-        React.createElement('span', { style: { fontSize: 16, fontWeight: 600, color: isOk ? 'var(--green)' : 'var(--red)' } },
-          isOk ? '✅ Qaytarılacaq:' : '❌ Çatışmır:'
-        ),
-        React.createElement('span', { style: { fontSize: 28, fontWeight: 800, color: isOk ? 'var(--green)' : 'var(--red)' } },
-          cur + Math.abs(change).toLocaleString('az-AZ', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-        )
-      ),
-
       // Düymələr
       React.createElement('div', { style: { display: 'flex', gap: 10 } },
         React.createElement('button', { className: 'btn btn-secondary', style: { flex: 1, justifyContent: 'center' }, onClick: onCancel }, 'Ləğv et'),
@@ -2803,7 +2788,7 @@ function PaymentModal({ total, cur, onCancel, onConfirm }) {
       React.createElement('button', {
         className: 'btn',
         style: { width: '100%', justifyContent: 'center', marginTop: 8, fontSize: 12, color: 'var(--text3)' },
-        onClick: () => onConfirm(0, whId)
+        onClick: () => onConfirm(0)
       }, 'Məbləğ daxil etmədən tamamla')
     )
   );
