@@ -4236,17 +4236,36 @@ function ClearSalesModal({ sales, onClear, onClose, addToast }) {
 // WAREHOUSE PAGE (Depo Yönetimi)
 // ============================================================
 function WarehousePage() {
-  const { products, categories, settings } = useApp();
+  const { products, categories, settings, saveProduct, addToast } = useApp();
   const [search, setSearch] = useState('');
   const [filterCat, setFilterCat] = useState('');
+  const [filterStatus, setFilterStatus] = useState('');
+  const [editId, setEditId] = useState(null);
+  const [editVal, setEditVal] = useState('');
+  const cur = settings.currency || '₼';
+
   const getCatName = id => { const c = categories.find(x => x.id === id); return c ? c.name : '-'; };
 
   const filtered = products.filter(p => {
     const q = search.toLowerCase();
     const matchS = !q || p.name.toLowerCase().includes(q) || (p.sku||'').toLowerCase().includes(q);
     const matchC = !filterCat || p.categoryId === filterCat;
-    return matchS && matchC;
+    const ws = p.stock || 0;
+    const mws = p.minStock || 10;
+    const matchF = !filterStatus
+      || (filterStatus === 'out' && ws === 0)
+      || (filterStatus === 'low' && ws > 0 && ws <= mws)
+      || (filterStatus === 'ok' && ws > mws);
+    return matchS && matchC && matchF;
   });
+
+  const handleUpdate = (p) => {
+    const v = parseInt(editVal);
+    if (isNaN(v) || v < 0) { addToast('Yanlış miqdar', 'error'); return; }
+    saveProduct({ ...p, stock: v });
+    setEditId(null);
+    addToast(`${p.name} stoku yeniləndi: ${v}`, 'success');
+  };
 
   return React.createElement('div', null,
     React.createElement('div', { className: 'page-header' },
@@ -4264,6 +4283,12 @@ function WarehousePage() {
         React.createElement('select', { className: 'form-control', style: { width: 180 }, value: filterCat, onChange: e => setFilterCat(e.target.value) },
           React.createElement('option', { value: '' }, 'Bütün Kateqoriyalar'),
           categories.map(c => React.createElement('option', { key: c.id, value: c.id }, c.name))
+        ),
+        React.createElement('select', { className: 'form-control', style: { width: 150 }, value: filterStatus, onChange: e => setFilterStatus(e.target.value) },
+          React.createElement('option', { value: '' }, 'Bütün Statuslar'),
+          React.createElement('option', { value: 'ok' }, '✓ Normal'),
+          React.createElement('option', { value: 'low' }, '⚠ Az'),
+          React.createElement('option', { value: 'out' }, '✕ Tükəndi')
         )
       ),
       React.createElement('div', { className: 'card' },
@@ -4272,10 +4297,20 @@ function WarehousePage() {
             React.createElement('thead', null, React.createElement('tr', null,
               React.createElement('th', null, 'Məhsul'),
               React.createElement('th', null, 'Kateqoriya'),
-              React.createElement('th', null, 'SKU')
+              React.createElement('th', null, 'SKU'),
+              React.createElement('th', null, 'Stok'),
+              React.createElement('th', null, 'Min.'),
+              React.createElement('th', null, 'Alış Qiy.'),
+              React.createElement('th', null, 'Satış Qiy.'),
+              React.createElement('th', null, 'Status'),
+              React.createElement('th', null, 'Əməliyyat')
             )),
-            React.createElement('tbody', null, filtered.map(p =>
-              React.createElement('tr', { key: p.id },
+            React.createElement('tbody', null, filtered.map(p => {
+              const ws = p.stock || 0;
+              const mws = p.minStock || 10;
+              const statusOut = ws === 0;
+              const statusLow = ws > 0 && ws <= mws;
+              return React.createElement('tr', { key: p.id },
                 React.createElement('td', null,
                   React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 8 } },
                     React.createElement('span', { style: { fontSize: 18 } }, p.emoji || '📦'),
@@ -4283,9 +4318,29 @@ function WarehousePage() {
                   )
                 ),
                 React.createElement('td', { style: { color: 'var(--text3)', fontSize: 12 } }, getCatName(p.categoryId)),
-                React.createElement('td', { className: 'fw-mono', style: { fontSize: 12 } }, p.sku)
-              )
-            ))
+                React.createElement('td', { className: 'fw-mono', style: { fontSize: 12 } }, p.sku),
+                React.createElement('td', null,
+                  editId === p.id
+                    ? React.createElement('div', { style: { display: 'flex', gap: 6, alignItems: 'center' } },
+                        React.createElement('input', { className: 'form-control', style: { width: 72, fontSize: 13 }, type: 'number', min: 0, defaultValue: ws, onChange: e => setEditVal(e.target.value), autoFocus: true }),
+                        React.createElement('button', { className: 'btn btn-success btn-sm', onClick: () => handleUpdate(p) }, '✓'),
+                        React.createElement('button', { className: 'btn btn-secondary btn-sm', onClick: () => setEditId(null) }, '✕')
+                      )
+                    : React.createElement('span', { className: 'fw-mono fw-bold', style: { color: statusOut ? 'var(--red)' : statusLow ? 'var(--accent)' : 'var(--green)' } }, ws + ' ' + (p.unit || 'ədəd'))
+                ),
+                React.createElement('td', { className: 'fw-mono', style: { color: 'var(--text3)' } }, mws),
+                React.createElement('td', { className: 'fw-mono' }, p.purchasePrice ? fmt.currency(p.purchasePrice, cur) : '—'),
+                React.createElement('td', { className: 'fw-mono' }, p.retailPrice ? fmt.currency(p.retailPrice, cur) : '—'),
+                React.createElement('td', null,
+                  React.createElement('span', { className: 'badge ' + (statusOut ? 'badge-red' : statusLow ? 'badge-yellow' : 'badge-green') },
+                    statusOut ? '✕ Tükəndi' : statusLow ? '⚠ Az' : '✓ Normal'
+                  )
+                ),
+                React.createElement('td', null,
+                  React.createElement('button', { className: 'btn btn-ghost btn-sm', onClick: () => { setEditId(p.id); setEditVal(ws.toString()); } }, '✏️ Yenilə')
+                )
+              );
+            }))
           )
         )
       )
