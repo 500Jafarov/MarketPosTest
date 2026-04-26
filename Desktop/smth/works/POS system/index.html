@@ -6057,26 +6057,11 @@ function SettingsPage() {
               '⚠ Geri yükleme mevcut tüm verilerin üzerine yazar. İşlem geri alınamaz.'
             ),
 
-            // Anbar seçimi (həm JSON həm Excel import üçün — 2+ anbar olduqda görünür)
-            settingsWarehouses.length > 1 && React.createElement('div', { style: { background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 8, padding: '10px 14px', marginBottom: 12 } },
-              React.createElement('div', { style: { fontSize: 12, fontWeight: 600, color: 'var(--text2)', marginBottom: 8 } }, '🏭 İdxal edilən stok hansı anbara aid olsun?'),
-              React.createElement('div', { style: { display: 'flex', gap: 6, flexWrap: 'wrap' } },
-                settingsWarehouses.map((wh, idx) =>
-                  React.createElement('button', {
-                    key: wh.id,
-                    type: 'button',
-                    className: 'btn btn-sm ' + (importWhIdx === idx ? 'btn-primary' : 'btn-secondary'),
-                    onClick: () => setImportWhIdx(idx)
-                  }, (importWhIdx === idx ? '✓ ' : '') + wh.name)
-                )
-              )
-            ),
-
             // JSON File picker
             React.createElement('label', { style: { display: 'flex', alignItems: 'center', gap: 10, padding: '12px 14px', background: 'var(--bg3)', border: '2px dashed var(--border2)', borderRadius: 'var(--radius)', cursor: 'pointer', transition: 'border-color 0.15s', marginBottom: 12 }, className: 'restore-drop' },
               React.createElement('span', { style: { fontSize: 24 } }, '📂'),
               React.createElement('div', { style: { flex: 1 } },
-                React.createElement('div', { style: { fontWeight: 600, fontSize: 13 } }, 'JSON Yedək Faylı Seç' + (settingsWarehouses.length > 1 ? ' → ' + settingsWarehouses[importWhIdx]?.name : '')),
+                React.createElement('div', { style: { fontWeight: 600, fontSize: 13 } }, 'JSON Yedək Faylı Seç'),
                 React.createElement('div', { style: { fontSize: 12, color: 'var(--text3)' } }, 'marketpos-yedek-YYYY-MM-DD.json')
               ),
               React.createElement('input', { type: 'file', accept: '.json,application/json', style: { display: 'none' }, onChange: handleRestoreFile })
@@ -6086,7 +6071,7 @@ function SettingsPage() {
             React.createElement('label', { style: { display: 'flex', alignItems: 'center', gap: 10, padding: '12px 14px', background: 'var(--bg3)', border: '2px dashed #217346', borderRadius: 'var(--radius)', cursor: 'pointer', transition: 'border-color 0.15s', marginBottom: 12 }, className: 'restore-drop' },
               React.createElement('span', { style: { fontSize: 24 } }, '📊'),
               React.createElement('div', { style: { flex: 1 } },
-                React.createElement('div', { style: { fontWeight: 600, fontSize: 13 } }, 'Excel Faylından Məhsul İdxal et' + (settingsWarehouses.length > 1 ? ' → ' + settingsWarehouses[importWhIdx]?.name : '')),
+                React.createElement('div', { style: { fontWeight: 600, fontSize: 13 } }, 'Excel Faylından Məhsul İdxal et'),
                 React.createElement('div', { style: { fontSize: 12, color: 'var(--text3)' } }, '.xlsx / .xls — "Ad, SKU, Barkod, Qiymət, Stok" sütunları')
               ),
               React.createElement('input', { type: 'file', accept: '.xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel', style: { display: 'none' }, onChange: handleRestoreExcel })
@@ -6116,7 +6101,7 @@ function SettingsPage() {
                   },
                     React.createElement('div', null,
                       React.createElement('div', { style: { fontWeight: 700, fontSize: 13 } }, restoreLoading ? '⏳ Əlavə edilir…' : '📥 Mövcudlara Əlavə et'),
-                      React.createElement('div', { style: { fontSize: 11, opacity: 0.8, marginTop: 2 } }, 'Mövcud məlumatlar silinmir. Yeni məhsullar əlavə edilir, mövcudların ' + (settingsWarehouses[importWhIdx]?.name || 'anbar') + ' stoku yenilənir.')
+                      React.createElement('div', { style: { fontSize: 11, opacity: 0.8, marginTop: 2 } }, 'Mövcud məlumatlar silinmir. Yeni məhsullar əlavə edilir, mövcudların stoku yenilənir.')
                     )
                   ),
                   // Seçenek 2: Replace
