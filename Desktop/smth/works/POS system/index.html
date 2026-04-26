@@ -2538,7 +2538,7 @@ function POSPage() {
                   marginTop: 10,
                   ...(isCredit ? { background: '#dc2626', boxShadow: '0 4px 12px rgba(220,38,38,0.4)' } : {}),
                 },
-                onClick: () => isCredit ? handleCompleteSale() : setShowPayment(true),
+                onClick: () => handleCompleteSale(),
                 disabled: cart.length === 0
               }, isCredit ? `⚠ Borça sat — ${fmt.currency(Math.max(0, total), cur)}` : `💵 Ödəniş — ${fmt.currency(Math.max(0, total), cur)}`)
             )
@@ -2691,7 +2691,7 @@ function POSPage() {
                 fontSize: 16,
                 ...(isCredit ? { background: '#dc2626', boxShadow: '0 4px 12px rgba(220,38,38,0.4)' } : {}),
               },
-              onClick: () => { if (isCredit) { handleCompleteSale(); setCartDrawerOpen(false); } else { setShowPayment(true); setCartDrawerOpen(false); } },
+              onClick: () => { handleCompleteSale(); setCartDrawerOpen(false); },
               disabled: cart.length === 0
             }, isCredit ? `⚠ Borça sat — ${fmt.currency(Math.max(0, total), cur)}` : `💵 Ödəniş — ${fmt.currency(Math.max(0, total), cur)}`)
           )
