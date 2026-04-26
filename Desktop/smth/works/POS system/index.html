@@ -1525,8 +1525,16 @@ function AppProvider({ children }) {
   }, []);
 
   // Sales
-  const completeSale = useCallback((cart, saleType, customerName, customerPhone, notes, cashier, discount = 0, cashReceived, isCredit = false) => {
-    const stockKey = 'warehouseStock';
+  const completeSale = useCallback((cart, saleType, customerName, customerPhone, notes, cashier, discount = 0, cashReceived, isCredit = false, warehouseId = 'wh1', warehouseName = 'Anbar 1') => {
+    // warehouseId-dən stok açarını müəyyən et
+    // wh1 → warehouseStock, wh2/wh_xxx → warehouse2Stock, warehouse3Stock...
+    const getStockKey = (whId, allWarehouses) => {
+      if (!allWarehouses || allWarehouses.length === 0) return 'warehouseStock';
+      const idx = allWarehouses.findIndex(w => w.id === whId);
+      if (idx <= 0) return 'warehouseStock';
+      return 'warehouse' + (idx + 1) + 'Stock';
+    };
+    const stockKey = getStockKey(warehouseId, settings.warehouses);
 
     // 1. Stok doğrulama
     for (const item of cart) {
@@ -1551,6 +1559,8 @@ function AppProvider({ children }) {
       notes,
       createdAt: new Date().toISOString(),
       isCredit,
+      warehouseId,
+      warehouseName,
       ...(cashReceived != null ? { cashReceived, change: cashReceived - total } : {}),
     };
 
@@ -2182,6 +2192,8 @@ function POSPage() {
   const [cashReceived, setCashReceived] = useState('');
   const [isCredit, setIsCredit] = useState(false);
   const [showPayment, setShowPayment] = useState(false);
+  const warehouses = (settings.warehouses && settings.warehouses.length > 0) ? settings.warehouses : [{ id: 'wh1', name: 'Anbar 1' }];
+  const [selectedWarehouseId, setSelectedWarehouseId] = useState(warehouses[0]?.id || 'wh1');
   const barcodeRef = useRef(null);
   const barcodeBuffer = useRef('');       // accumulates chars from scanner
   const barcodeTimer = useRef(null);      // clears buffer after pause
@@ -2327,9 +2339,11 @@ function POSPage() {
   const cashReceivedNum = parseFloat(cashReceived) || 0;
   const change = cashReceivedNum > 0 ? cashReceivedNum - Math.max(0, total) : null;
 
-  const handleCompleteSale = () => {
+  const handleCompleteSale = (whId) => {
     if (cart.length === 0) { addToast('Səbət boşdur!', 'error'); return; }
-    const result = completeSale(cart, saleType, customerName, customerPhone, notes, currentUser, discount, cashReceivedNum > 0 ? cashReceivedNum : undefined, isCredit);
+    const warehouseId = whId || selectedWarehouseId;
+    const warehouseName = warehouses.find(w => w.id === warehouseId)?.name || 'Anbar 1';
+    const result = completeSale(cart, saleType, customerName, customerPhone, notes, currentUser, discount, cashReceivedNum > 0 ? cashReceivedNum : undefined, isCredit, warehouseId, warehouseName);
     if (!result.ok) { addToast(result.error, 'error'); return; }
     setCompletedSale(result.sale);
     setCart([]);
@@ -2690,11 +2704,14 @@ function POSPage() {
     showPayment && React.createElement(PaymentModal, {
       total: Math.max(0, total),
       cur,
+      warehouses,
+      selectedWarehouseId,
+      onWarehouseChange: setSelectedWarehouseId,
       onCancel: () => setShowPayment(false),
-      onConfirm: (received) => {
+      onConfirm: (received, whId) => {
         setCashReceived(received > 0 ? String(received) : '');
         setShowPayment(false);
-        setTimeout(() => handleCompleteSale(), 0);
+        setTimeout(() => handleCompleteSale(whId), 0);
       }
     })
   );
@@ -2703,9 +2720,11 @@ function POSPage() {
 // ============================================================
 // PAYMENT MODAL — Nağd ödəniş və qaytarılacaq hesablama
 // ============================================================
-function PaymentModal({ total, cur, onCancel, onConfirm }) {
+function PaymentModal({ total, cur, warehouses, selectedWarehouseId, onWarehouseChange, onCancel, onConfirm }) {
   const [received, setReceived] = React.useState('');
   const inputRef = React.useRef(null);
+  const whs = (warehouses && warehouses.length > 0) ? warehouses : [{ id: 'wh1', name: 'Anbar 1' }];
+  const [whId, setWhId] = React.useState(selectedWarehouseId || whs[0]?.id);
 
   React.useEffect(() => { setTimeout(() => inputRef.current?.focus(), 100); }, []);
 
@@ -2721,7 +2740,7 @@ function PaymentModal({ total, cur, onCancel, onConfirm }) {
     Math.ceil(total / 20) * 20,
   ].filter((v, i, a) => v >= total && a.indexOf(v) === i).slice(0, 4);
 
-  const handleKey = (e) => { if (e.key === 'Enter' && isOk) onConfirm(receivedNum); };
+  const handleKey = (e) => { if (e.key === 'Enter' && isOk) onConfirm(receivedNum, whId); };
 
   return React.createElement(Modal, { show: true, onClose: onCancel, title: '💵 Nağd Ödəniş' },
     React.createElement('div', { className: 'modal-body' },
@@ -2731,6 +2750,19 @@ function PaymentModal({ total, cur, onCancel, onConfirm }) {
         React.createElement('div', { style: { fontSize: 13, color: 'var(--text2)', marginBottom: 4 } }, 'Ödəniləcək məbləğ'),
         React.createElement('div', { style: { fontSize: 36, fontWeight: 800, color: 'var(--accent)', letterSpacing: 1 } },
           cur + total.toLocaleString('az-AZ', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+        )
+      ),
+
+      // Anbar seçimi (birdən çox anbar varsa göstər)
+      whs.length > 1 && React.createElement('div', { className: 'form-group', style: { marginBottom: 14 } },
+        React.createElement('label', { className: 'form-label' }, '🏭 Satış hansı anbardandır?'),
+        React.createElement('div', { style: { display: 'flex', gap: 8, flexWrap: 'wrap' } },
+          whs.map(w => React.createElement('button', {
+            key: w.id,
+            className: 'btn ' + (whId === w.id ? 'btn-primary' : 'btn-secondary'),
+            style: { flex: 1, justifyContent: 'center', fontWeight: whId === w.id ? 700 : 400 },
+            onClick: () => { setWhId(w.id); if (onWarehouseChange) onWarehouseChange(w.id); }
+          }, w.name))
         )
       ),
 
@@ -2781,7 +2813,7 @@ function PaymentModal({ total, cur, onCancel, onConfirm }) {
           className: 'btn btn-primary',
           style: { flex: 2, justifyContent: 'center', fontSize: 16, fontWeight: 700, opacity: isOk ? 1 : 0.5 },
           disabled: !isOk,
-          onClick: () => onConfirm(receivedNum)
+          onClick: () => onConfirm(receivedNum, whId)
         }, '✓ Satışı Tamamla')
       ),
 
@@ -3547,12 +3579,19 @@ function LabelPrintModal({ product, settings, onClose }) {
 }
 
 function ProductModal({ product, categories, settings, onSave, onClose }) {
-  const [form, setForm] = useState(product || {
-    name: '', sku: '', barcode: '', categoryId: '', brand: '',
-    purchasePrice: '', retailPrice: '', wholesalePrice: '',
-    stock: '', minStock: 10,
-    unit: 'adet', description: '', active: true, image: null, emoji: '📦'
-  });
+  const warehouses = (settings && settings.warehouses && settings.warehouses.length > 0)
+    ? settings.warehouses
+    : [{ id: 'wh1', name: 'Anbar 1' }];
+  const defaultWhId = warehouses[0]?.id || 'wh1';
+  const [form, setForm] = useState(product
+    ? { ...product, warehouseId: product.warehouseId || defaultWhId }
+    : {
+        name: '', sku: '', barcode: '', categoryId: '', brand: '',
+        purchasePrice: '', retailPrice: '', wholesalePrice: '',
+        stock: '', minStock: 10, warehouseId: defaultWhId,
+        unit: 'adet', description: '', active: true, image: null, emoji: '📦'
+      }
+  );
   const [errors, setErrors] = useState({});
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
@@ -3601,6 +3640,7 @@ function ProductModal({ product, categories, settings, onSave, onClose }) {
       purchasePrice: +form.purchasePrice || 0,
       stock: +form.stock || 0,
       minStock: +form.minStock || 10,
+      warehouseId: form.warehouseId || warehouses[0]?.id || 'wh1',
     });
   };
 
@@ -3717,14 +3757,31 @@ function ProductModal({ product, categories, settings, onSave, onClose }) {
           React.createElement('div', { style: { background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 10, padding: '12px 14px', marginBottom: 14 } },
             React.createElement('div', { style: { fontSize: 11, fontFamily: 'var(--mono)', color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 10 } }, '📦 Stok Məlumatları'),
             React.createElement('div', { className: 'form-grid-2', style: { marginBottom: 10 } },
-              React.createElement('div', { className: 'form-group', style: { marginBottom: 0 } },
-                React.createElement('label', { className: 'form-label' }, 'Stok *'),
-                React.createElement('input', { className: 'form-control', type: 'number', min: 0, value: form.stock || '', onChange: e => set('stock', e.target.value), placeholder: '0' }),
-                errors.stock && React.createElement('div', { className: 'form-error' }, errors.stock)
+              // Market stok
+              React.createElement('div', { style: { background: 'var(--accent-dim)', border: '1px solid rgba(232,160,32,0.2)', borderRadius: 8, padding: '10px 12px' } },
+                React.createElement('div', { style: { fontSize: 11, fontWeight: 700, color: 'var(--accent)', fontFamily: 'var(--mono)', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 5 } }, '🏪 Mağaza Stoqu'),
+                React.createElement('div', { className: 'form-grid-2' },
+                  React.createElement('div', { className: 'form-group', style: { marginBottom: 0 } },
+                    React.createElement('label', { className: 'form-label' }, 'Mövcud *'),
+                    React.createElement('input', { className: 'form-control', type: 'number', min: 0, value: form.stock || '', onChange: e => set('stock', e.target.value), placeholder: '0' }),
+                    errors.stock && React.createElement('div', { className: 'form-error' }, errors.stock)
+                  ),
+                  React.createElement('div', { className: 'form-group', style: { marginBottom: 0 } },
+                    React.createElement('label', { className: 'form-label' }, 'Min. Hədd'),
+                    React.createElement('input', { className: 'form-control', type: 'number', min: 0, value: form.minStock || '', onChange: e => set('minStock', e.target.value), placeholder: '10' })
+                  )
+                )
               ),
-              React.createElement('div', { className: 'form-group', style: { marginBottom: 0 } },
-                React.createElement('label', { className: 'form-label' }, 'Min. Hədd'),
-                React.createElement('input', { className: 'form-control', type: 'number', min: 0, value: form.minStock || '', onChange: e => set('minStock', e.target.value), placeholder: '10' })
+              // Anbar seçimi — dropdown
+              React.createElement('div', { style: { background: 'var(--blue-dim)', border: '1px solid rgba(59,130,246,0.2)', borderRadius: 8, padding: '10px 12px' } },
+                React.createElement('div', { style: { fontSize: 11, fontWeight: 700, color: 'var(--blue)', fontFamily: 'var(--mono)', marginBottom: 8 } }, '🏭 Anbar'),
+                React.createElement('select', {
+                  className: 'form-control',
+                  value: form.warehouseId || warehouses[0]?.id || 'wh1',
+                  onChange: e => set('warehouseId', e.target.value)
+                },
+                  warehouses.map(wh => React.createElement('option', { key: wh.id, value: wh.id }, wh.name))
+                )
               )
             ),
             // Birim
@@ -4179,17 +4236,24 @@ function ClearSalesModal({ sales, onClear, onClose, addToast }) {
 // WAREHOUSE PAGE (Depo Yönetimi)
 // ============================================================
 function WarehousePage() {
-  const { products, categories } = useApp();
+  const { products, categories, settings } = useApp();
   const [search, setSearch] = useState('');
   const [filterCat, setFilterCat] = useState('');
+  const [activeWhId, setActiveWhId] = useState('all');
 
+  const warehouses = (settings.warehouses && settings.warehouses.length > 0)
+    ? settings.warehouses : [{ id: 'wh1', name: 'Anbar 1' }];
+
+  const getWhName = id => warehouses.find(w => w.id === id)?.name || 'Anbar 1';
   const getCatName = id => { const c = categories.find(x => x.id === id); return c ? c.name : '-'; };
 
   const filtered = products.filter(p => {
     const q = search.toLowerCase();
     const matchS = !q || p.name.toLowerCase().includes(q) || (p.sku||'').toLowerCase().includes(q);
     const matchC = !filterCat || p.categoryId === filterCat;
-    return matchS && matchC;
+    const pWhId = p.warehouseId || warehouses[0]?.id;
+    const matchWh = activeWhId === 'all' || pWhId === activeWhId;
+    return matchS && matchC && matchWh;
   });
 
   return React.createElement('div', null,
@@ -4200,6 +4264,17 @@ function WarehousePage() {
       )
     ),
     React.createElement('div', { className: 'page-body' },
+      React.createElement('div', { style: { display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' } },
+        React.createElement('button', {
+          className: 'btn ' + (activeWhId === 'all' ? 'btn-primary' : 'btn-secondary'),
+          onClick: () => setActiveWhId('all')
+        }, 'Hamısı'),
+        warehouses.map(wh => React.createElement('button', {
+          key: wh.id,
+          className: 'btn ' + (activeWhId === wh.id ? 'btn-primary' : 'btn-secondary'),
+          onClick: () => setActiveWhId(wh.id)
+        }, '🏭 ' + wh.name))
+      ),
       React.createElement('div', { className: 'filter-row' },
         React.createElement('div', { className: 'search-bar', style: { flex: 1 } },
           React.createElement('span', { className: 'search-icon' }, '🔍'),
@@ -4216,7 +4291,8 @@ function WarehousePage() {
             React.createElement('thead', null, React.createElement('tr', null,
               React.createElement('th', null, 'Məhsul'),
               React.createElement('th', null, 'Kateqoriya'),
-              React.createElement('th', null, 'SKU')
+              React.createElement('th', null, 'SKU'),
+              React.createElement('th', null, 'Anbar')
             )),
             React.createElement('tbody', null, filtered.map(p =>
               React.createElement('tr', { key: p.id },
@@ -4227,7 +4303,13 @@ function WarehousePage() {
                   )
                 ),
                 React.createElement('td', { style: { color: 'var(--text3)', fontSize: 12 } }, getCatName(p.categoryId)),
-                React.createElement('td', { className: 'fw-mono', style: { fontSize: 12 } }, p.sku)
+                React.createElement('td', { className: 'fw-mono', style: { fontSize: 12 } }, p.sku),
+                React.createElement('td', null,
+                  React.createElement('span', {
+                    className: 'badge badge-blue',
+                    style: { fontSize: 12 }
+                  }, '🏭 ' + getWhName(p.warehouseId || warehouses[0]?.id))
+                )
               )
             ))
           )
@@ -4252,16 +4334,22 @@ function TransferPage() {
   const [clearConfirmed, setClearConfirmed] = useState(false);
   const cur = settings.currency || '₼';
 
+  const warehouses = (settings.warehouses && settings.warehouses.length > 0) ? settings.warehouses : [{ id: 'wh1', name: 'Anbar 1' }];
+  const [activeWhIdx, setActiveWhIdx] = useState(0);
+  const getStockKey = (idx) => idx === 0 ? 'warehouseStock' : 'warehouse' + (idx + 1) + 'Stock';
+  const stockKey = getStockKey(activeWhIdx);
+
   const activeProducts = products.filter(p => p.active);
   const filtered = activeProducts.filter(p => {
     const q = search.toLowerCase();
-    return (!q || p.name.toLowerCase().includes(q) || p.sku.toLowerCase().includes(q))
+    return p[stockKey] !== undefined  // yalnız seçilmiş anbara aid məhsullar
+      && (!q || p.name.toLowerCase().includes(q) || p.sku.toLowerCase().includes(q))
       && (!filterCat || p.categoryId === filterCat);
   });
 
   const cartItems = Object.entries(cart).filter(([, qty]) => qty > 0).map(([id, qty]) => {
     const p = products.find(x => x.id === id);
-    return p ? { productId: id, productName: p.name, sku: p.sku, qty, warehouseStock: p.warehouseStock || 0, emoji: p.emoji } : null;
+    return p ? { productId: id, productName: p.name, sku: p.sku, qty, warehouseStock: p[stockKey] || 0, emoji: p.emoji } : null;
   }).filter(Boolean);
 
   const setQty = (productId, qty) => {
@@ -4271,7 +4359,7 @@ function TransferPage() {
   const handleTransfer = () => {
     if (cartItems.length === 0) { addToast('Transfer listesi bos!', 'error'); return; }
     const items = cartItems.map(i => ({ productId: i.productId, qty: i.qty }));
-    const result = transferToShop(items, note, currentUser, 0);
+    const result = transferToShop(items, note, currentUser, activeWhIdx);
     if (!result.ok) { addToast(result.error, 'error'); return; }
     setCart({});
     setNote('');
@@ -4302,6 +4390,15 @@ function TransferPage() {
       activeTab === 'new' && React.createElement('div', { className: 'transfer-layout', style: { display: 'flex', gap: 16 } },
         // Product selection
         React.createElement('div', { style: { flex: 1, minWidth: 0 } },
+          // Anbar seçimi — məhsul siyahısının üstündə
+          warehouses.length > 1 && React.createElement('div', { style: { display: 'flex', gap: 8, marginBottom: 12 } },
+            React.createElement('span', { style: { fontSize: 13, color: 'var(--text2)', alignSelf: 'center', marginRight: 4 } }, '🏭 Anbar:'),
+            warehouses.map((wh, idx) => React.createElement('button', {
+              key: wh.id,
+              className: 'btn btn-sm ' + (activeWhIdx === idx ? 'btn-primary' : 'btn-secondary'),
+              onClick: () => { setActiveWhIdx(idx); setCart({}); }
+            }, (activeWhIdx === idx ? '✓ ' : '') + wh.name))
+          ),
           React.createElement('div', { className: 'filter-row' },
             React.createElement('div', { className: 'search-bar', style: { flex: 1 } },
               React.createElement('span', { className: 'search-icon' }, '🔍'),
@@ -5456,9 +5553,13 @@ function SettingsPage() {
   const [restoreInfo, setRestoreInfo] = useState(null);
   const [restoreData, setRestoreData] = useState(null);
   const [restoreLoading, setRestoreLoading] = useState(false);
+  const [importWhIdx, setImportWhIdx] = useState(0); // Excel/JSON import üçün seçilmiş anbar indeksi
   const [importSource, setImportSource] = useState('json'); // 'json' | 'excel'
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
-  const importStockKey = 'warehouseStock';
+
+  const settingsWarehouses = (form.warehouses && form.warehouses.length > 0)
+    ? form.warehouses : [{ id: 'wh1', name: 'Anbar 1' }];
+  const importStockKey = importWhIdx === 0 ? 'warehouseStock' : 'warehouse' + (importWhIdx + 1) + 'Stock';
 
   // Firestore-dan settings gəldikdə formu sinxronlaşdır
   useEffect(() => { setForm(f => ({ ...SEED_SETTINGS, ...settings, ...f })); }, [settings]);
@@ -5823,6 +5924,41 @@ function SettingsPage() {
           )
         ),
 
+        // ── ANBAR İDARƏETMƏSİ ────────────────────────
+        React.createElement('div', { className: 'card', style: { marginBottom: 16 } },
+          React.createElement('div', { className: 'card-header' }, React.createElement('span', { className: 'card-title' }, '🏭 Anbarlar')),
+          React.createElement('div', { style: { fontSize: 13, color: 'var(--text2)', marginBottom: 12 } }, 'Anbar əlavə edin, adlandırın. Hər anbar üçün məhsul stoku ayrıca izlənilir.'),
+          (form.warehouses || [{ id: 'wh1', name: 'Anbar 1' }]).map((wh, idx) =>
+            React.createElement('div', { key: wh.id, style: { display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8 } },
+              React.createElement('span', { style: { fontSize: 18 } }, '🏭'),
+              React.createElement('input', {
+                className: 'form-control',
+                value: wh.name,
+                onChange: e => {
+                  const updated = (form.warehouses || []).map((w, i) => i === idx ? { ...w, name: e.target.value } : w);
+                  set('warehouses', updated);
+                },
+                placeholder: 'Anbar adı',
+                style: { flex: 1 }
+              }),
+              (form.warehouses || []).length > 1 && React.createElement('button', {
+                className: 'btn btn-danger',
+                style: { padding: '6px 12px', fontSize: 13 },
+                onClick: () => set('warehouses', (form.warehouses || []).filter((_, i) => i !== idx))
+              }, '🗑')
+            )
+          ),
+          React.createElement('button', {
+            className: 'btn btn-secondary',
+            style: { marginTop: 4 },
+            onClick: () => {
+              const newId = 'wh' + Date.now();
+              const count = (form.warehouses || []).length + 1;
+              set('warehouses', [...(form.warehouses || []), { id: newId, name: 'Anbar ' + count }]);
+            }
+          }, '+ Anbar əlavə et')
+        ),
+
         // ── BARKOD ETİKET ÖLÇÜİ ────────────────────────
         React.createElement('div', { className: 'card', style: { marginBottom: 16 } },
           React.createElement('div', { className: 'card-header' }, React.createElement('span', { className: 'card-title' }, '🏷️ Barkod Etiket Ölçüsü')),
@@ -5892,11 +6028,26 @@ function SettingsPage() {
               '⚠ Geri yükleme mevcut tüm verilerin üzerine yazar. İşlem geri alınamaz.'
             ),
 
+            // Anbar seçimi (həm JSON həm Excel import üçün — 2+ anbar olduqda görünür)
+            settingsWarehouses.length > 1 && React.createElement('div', { style: { background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 8, padding: '10px 14px', marginBottom: 12 } },
+              React.createElement('div', { style: { fontSize: 12, fontWeight: 600, color: 'var(--text2)', marginBottom: 8 } }, '🏭 İdxal edilən stok hansı anbara aid olsun?'),
+              React.createElement('div', { style: { display: 'flex', gap: 6, flexWrap: 'wrap' } },
+                settingsWarehouses.map((wh, idx) =>
+                  React.createElement('button', {
+                    key: wh.id,
+                    type: 'button',
+                    className: 'btn btn-sm ' + (importWhIdx === idx ? 'btn-primary' : 'btn-secondary'),
+                    onClick: () => setImportWhIdx(idx)
+                  }, (importWhIdx === idx ? '✓ ' : '') + wh.name)
+                )
+              )
+            ),
+
             // JSON File picker
             React.createElement('label', { style: { display: 'flex', alignItems: 'center', gap: 10, padding: '12px 14px', background: 'var(--bg3)', border: '2px dashed var(--border2)', borderRadius: 'var(--radius)', cursor: 'pointer', transition: 'border-color 0.15s', marginBottom: 12 }, className: 'restore-drop' },
               React.createElement('span', { style: { fontSize: 24 } }, '📂'),
               React.createElement('div', { style: { flex: 1 } },
-                React.createElement('div', { style: { fontWeight: 600, fontSize: 13 } }, 'JSON Yedək Faylı Seç'),
+                React.createElement('div', { style: { fontWeight: 600, fontSize: 13 } }, 'JSON Yedək Faylı Seç' + (settingsWarehouses.length > 1 ? ' → ' + settingsWarehouses[importWhIdx]?.name : '')),
                 React.createElement('div', { style: { fontSize: 12, color: 'var(--text3)' } }, 'marketpos-yedek-YYYY-MM-DD.json')
               ),
               React.createElement('input', { type: 'file', accept: '.json,application/json', style: { display: 'none' }, onChange: handleRestoreFile })
@@ -5906,7 +6057,7 @@ function SettingsPage() {
             React.createElement('label', { style: { display: 'flex', alignItems: 'center', gap: 10, padding: '12px 14px', background: 'var(--bg3)', border: '2px dashed #217346', borderRadius: 'var(--radius)', cursor: 'pointer', transition: 'border-color 0.15s', marginBottom: 12 }, className: 'restore-drop' },
               React.createElement('span', { style: { fontSize: 24 } }, '📊'),
               React.createElement('div', { style: { flex: 1 } },
-                React.createElement('div', { style: { fontWeight: 600, fontSize: 13 } }, 'Excel Faylından Məhsul İdxal et'),
+                React.createElement('div', { style: { fontWeight: 600, fontSize: 13 } }, 'Excel Faylından Məhsul İdxal et' + (settingsWarehouses.length > 1 ? ' → ' + settingsWarehouses[importWhIdx]?.name : '')),
                 React.createElement('div', { style: { fontSize: 12, color: 'var(--text3)' } }, '.xlsx / .xls — "Ad, SKU, Barkod, Qiymət, Stok" sütunları')
               ),
               React.createElement('input', { type: 'file', accept: '.xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel', style: { display: 'none' }, onChange: handleRestoreExcel })
