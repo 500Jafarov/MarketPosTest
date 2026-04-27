@@ -1,0 +1,13 @@
+{
+  "outputDirectory": "Desktop/smth/works/POS system",
+  "buildCommand": "",
+  "installCommand": "",
+  "framework": null,
+  "routes": [
+    { "src": "/firebase/(.*)", "dest": "/firebase/$1" },
+    { "src": "/icons/(.*)", "dest": "/icons/$1" },
+    { "src": "/sw.js", "dest": "/sw.js" },
+    { "src": "/manifest.json", "dest": "/manifest.json" },
+    { "src": "/(.*)", "dest": "/index.html" }
+  ]
+}
