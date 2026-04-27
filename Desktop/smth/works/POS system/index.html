@@ -6542,14 +6542,38 @@ function AppShell() {
              height: '100vh', background: 'var(--bg)', color: 'var(--accent)',
              fontFamily: 'var(--mono)', fontSize: 14, letterSpacing: '0.05em' }
   }, '⬡  MarketPOS yükleniyor...');
-  const [page, setPage] = useState('dashboard');
+  const [page, setPage] = useState('pos');
   const [showEOD, setShowEOD] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [pinTarget, setPinTarget] = useState(null); // pending page waiting for PIN
+  const [pinValue, setPinValue] = useState('');
+  const [pinError, setPinError] = useState(false);
   const isAdmin = currentUser?.role === 'admin';
   const cur = settings?.currency || '₼';
+  const PIN_PAGES = ['dashboard', 'reports'];
+  const CORRECT_PIN = '1701';
 
-  // Close sidebar on page change
-  const navigate = (p) => { setPage(p); setSidebarOpen(false); };
+  const navigate = (p) => {
+    if (isAdmin && PIN_PAGES.includes(p)) {
+      setPinTarget(p);
+      setPinValue('');
+      setPinError(false);
+      setSidebarOpen(false);
+    } else {
+      setPage(p);
+      setSidebarOpen(false);
+    }
+  };
+
+  const handlePinSubmit = () => {
+    if (pinValue === CORRECT_PIN) {
+      setPage(pinTarget);
+      setPinTarget(null);
+    } else {
+      setPinError(true);
+      setPinValue('');
+    }
+  };
 
   useEffect(() => {
     if (!isAdmin && !['pos','sales'].includes(page)) setPage('pos');
@@ -6600,7 +6624,30 @@ function AppShell() {
       pages[page] || pages.dashboard
     ),
     React.createElement(ToastContainer),
-    showEOD && React.createElement(EndOfDayModal, { onClose: () => setShowEOD(false) })
+    showEOD && React.createElement(EndOfDayModal, { onClose: () => setShowEOD(false) }),
+    pinTarget && React.createElement(Modal, { show: true, onClose: () => setPinTarget(null), title: '🔒 Kod tələb olunur' },
+      React.createElement('div', { className: 'modal-body', style: { textAlign: 'center' } },
+        React.createElement('div', { style: { fontSize: 13, color: 'var(--text2)', marginBottom: 16 } },
+          pinTarget === 'dashboard' ? 'Lövhəyə giriş üçün kodu daxil edin' : 'Hesabatlara giriş üçün kodu daxil edin'
+        ),
+        React.createElement('input', {
+          className: 'form-control',
+          type: 'password',
+          inputMode: 'numeric',
+          maxLength: 4,
+          value: pinValue,
+          autoFocus: true,
+          style: { textAlign: 'center', fontSize: 28, letterSpacing: 8, width: 140, margin: '0 auto 12px' },
+          onChange: e => { setPinValue(e.target.value); setPinError(false); },
+          onKeyDown: e => e.key === 'Enter' && handlePinSubmit()
+        }),
+        pinError && React.createElement('div', { style: { color: 'var(--red)', fontSize: 13, marginBottom: 8 } }, '❌ Yanlış kod'),
+        React.createElement('div', { style: { display: 'flex', gap: 10, justifyContent: 'center' } },
+          React.createElement('button', { className: 'btn btn-secondary', onClick: () => setPinTarget(null) }, 'Ləğv et'),
+          React.createElement('button', { className: 'btn btn-primary', onClick: handlePinSubmit }, '✓ Daxil ol')
+        )
+      )
+    )
   );
 }
 
