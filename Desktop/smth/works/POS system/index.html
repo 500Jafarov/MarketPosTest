@@ -29,7 +29,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/qz-tray@2.2.4/dist/qz-tray.min.js" onerror="console.log('QZ Tray yüklənmədi, adi çap istifadə olunacaq')"></script>
+<script src="https://cdn.jsdelivr.net/npm/qz-tray@2.2.4/qz-tray.js" onerror="console.log('QZ Tray yüklənmədi, adi çap istifadə olunacaq')"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jsbarcode/3.11.5/JsBarcode.all.min.js" onerror="console.log('JsBarcode yüklənmədi')"></script>
 <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js" onerror="console.log('EmailJS yüklənmədi')"></script>
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js" onerror="console.log('SheetJS yüklənmədi')"></script>
@@ -2741,19 +2741,104 @@ function PaymentModal({ total, cur, onCancel, onConfirm }) {
 // ============================================================
 // QZ TRAY — Termal Yazıcı Yardımcısı
 // ============================================================
+const MARKETPOS_CERT = `-----BEGIN CERTIFICATE-----
+MIIDSzCCAjOgAwIBAgIUQRbAqOVSGZu+3Ahlc5j3Q5NPt/YwDQYJKoZIhvcNAQEL
+BQAwNTESMBAGA1UEAwwJTWFya2V0UE9TMRIwEAYDVQQKDAlNYXJrZXRQT1MxCzAJ
+BgNVBAYTAkFaMB4XDTI2MDQyNzA3MjYxMFoXDTM2MDQyNDA3MjYxMFowNTESMBAG
+A1UEAwwJTWFya2V0UE9TMRIwEAYDVQQKDAlNYXJrZXRQT1MxCzAJBgNVBAYTAkFa
+MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAoEcF/GhY2aFycYeYc9vv
+uCMze7Uc+u1LnQR+/TGZ0FtTfWUjqvGHOpEzwxC3x2/A0gTyz3PK2pCXMqn6ctjy
+90tkD0tNmvm/z4KN57gnMWvGIHPIYMtURfRhFiPWWGdaXRenskrPbOi8Q2/FrJiW
+Pffoepm3bWE8hP0ZEwiiQzbmaDGPiymVjOH/nD0bvQ8UG0f3KfV/ryqiuL9epUIm
+2anRY5DmKNko4Xbcmevth7uuY0srmxiRKfJ097Z8eneyz5nthcEbJekIhSgfGW3C
+bcYV5aemvxNspZPR/mUK4k/Dy8i+uhEpQlH9Rzm9eQEJuWm2PzYvEdp4ISAAnT9L
+fwIDAQABo1MwUTAdBgNVHQ4EFgQU4hlKc49gJX1pQJNNFgv9thUAbicwHwYDVR0j
+BBgwFoAU4hlKc49gJX1pQJNNFgv9thUAbicwDwYDVR0TAQH/BAUwAwEB/zANBgkq
+hkiG9w0BAQsFAAOCAQEAix94t2ElWWtH0DjhSRszrzqcMN1Dg5YGEd12sJn9I+nA
+YKZ3KOqWSkkGYA74/TjzdY1rFNtsgvfa/VqgiC4u/L6+00os/XhViyExdbXVIihD
+QjGstYwRy1tiD3/9/mjVdAC2ftaZ8Q50f7IXU2H7aExJgWuVdgv+fLdrk+TEX4of
+5QId2tNLRgxOMhdcfAIppcGPYXYBTDgGrQn7JXuCG4uQbULtij7KIYMIQMpnh+4A
+Zr9pIvHZIh7tvj4DcbL1orU8UDiN1GPyfT+wxVNkqAYhyjSGRjTIWDjGktGGzGl3
+0OOQ+edFZmC+6vJvyzUJuJjBnXGhGvZTeOp7IFRrYw==
+-----END CERTIFICATE-----`;
+
+const MARKETPOS_KEY = `-----BEGIN PRIVATE KEY-----
+MIIEvAIBADANBgkqhkiG9w0BAQEFAASCBKYwggSiAgEAAoIBAQCgRwX8aFjZoXJx
+h5hz2++4IzN7tRz67UudBH79MZnQW1N9ZSOq8Yc6kTPDELfHb8DSBPLPc8rakJcy
+qfpy2PL3S2QPS02a+b/Pgo3nuCcxa8Ygc8hgy1RF9GEWI9ZYZ1pdF6eySs9s6LxD
+b8WsmJY99+h6mbdtYTyE/RkTCKJDNuZoMY+LKZWM4f+cPRu9DxQbR/cp9X+vKqK4
+v16lQibZqdFjkOYo2SjhdtyZ6+2Hu65jSyubGJEp8nT3tnx6d7LPme2FwRsl6QiF
+KB8ZbcJtxhXlp6a/E2ylk9H+ZQriT8PLyL66ESlCUf1HOb15AQm5abY/Ni8R2ngh
+IACdP0t/AgMBAAECggEAOCtb0i7hgHefi2D5URUxaCdR+hcpTlkOCDuUo3gYDxiK
+ZGYm/1gAy8oqSUDZHzgva4rXa1OJslo82sEOJ+SXFYpiySdbTaYcDgWTZLM5bQz3
+lNTu0tk/MfrocWFi0315Ainxl762/dR8cefAb3HUKWhxnVG0ok0S8AphGLYMY6BS
+KaPrkfc/K9OUQAXnYadcaCE129RBie6aEsu3Sx+s5g4O5zKaGd2Jfl/QeGQJYZzo
+u3d+9APAlYLJIDn7BwNGUXS3IZpaNJu7Mw9mkI8C+rxXBRu0V7BsgK8U3jqM83/p
+VzTKxOB0pqFLFFrtbUBP6Vj+nQLTdssTIot1tsUqsQKBgQDVQiYDRICC9VDkFg8B
+YW1cD/ag8Bz97IlP4bGskLMLTW7ULc6cfNWtGz2N2xA1F2vU6ZBwWvdajp6F6Nc8
+dtXM6kHhJchSAw7HdsVrc4zBm2HTChZuufBHTIu6sOY9mE0o4NLSJXfgvGBMBcIR
+aGHepszMzasrdcuyf8DXGd5irwKBgQDAZofKyPvSBAzDLxUDkxH0auljO62RUuY0
++wZLJxQozEsppaCoCp2FD2DfakfssikLuVDcPM5OkAKngUlWLEHDmiENVeJ7+5GL
+TDTttXomv+KqzVB6DR7dFfsVNZfeH/Z1JF+HaQUvAjarEWTWZtckgBBevYb5UJS0
+kd3HqfIYMQKBgEJAcp7BQUtt+tthHvhG1DqtmukUr20TdvUiIJiDu5vfSncQZAep
+oJhOxiizza0wwYc7qGu/VukDNaxUUcmvAWzPuffATSNtX8IH2/0twKTFKPbvQ1jS
+2xrLZP1yx5SLJC126wfuK/fdje0QPOI7k2wgVa+qlWrDBa1GkxpAJx5xAoGADg2v
+L4W8txtqnzsqKsesUREaGRB73hiTDh2j2QtysoQxnUom0P9tgBGeftMxi717uAqC
+OIQMgbqNJxUPeUbkSthQP7wdPfcjK2yWlSJjWL89XEKA9VlN/tIjM+plPGlTRD0y
+6R4nrcZYneg4WFzMrDLaf0ESwdU793CMJZBpSZECgYBImLwcxlbtMqquvnm9CDam
+9+t9ZTyKPXE6AJb6ytdMSpMBKSY2OYoTy2w3A5zwsvE1KIVUcMQCqLQanxd9ylsz
+sS021Bi6ubTviajUiG2jmGoAxH6vygWN2MMUBMqO888xM2191zYb9FpOKG8Ol8eO
+BhqvtLBpZjN7ti8Wq68KEw==
+-----END PRIVATE KEY-----`;
+
+let _qzKeyPromise = null;
+let _qzSecurityConfigured = false;
+const _encoder = new TextEncoder();
+
+function getQZKey() {
+  if (!_qzKeyPromise) {
+    const keyData = MARKETPOS_KEY.replace(/-----[^-]+-----|[\s]/g, '');
+    const keyBuffer = Uint8Array.from(atob(keyData), c => c.charCodeAt(0));
+    _qzKeyPromise = crypto.subtle.importKey(
+      'pkcs8', keyBuffer,
+      { name: 'RSASSA-PKCS1-v1_5', hash: { name: 'SHA-512' } },
+      false, ['sign']
+    );
+  }
+  return _qzKeyPromise;
+}
+
+async function qzSign(toSign) {
+  const key = await getQZKey();
+  const sig = await crypto.subtle.sign('RSASSA-PKCS1-v1_5', key, _encoder.encode(toSign));
+  const bytes = new Uint8Array(sig);
+  let str = '';
+  for (let i = 0; i < bytes.length; i++) str += String.fromCharCode(bytes[i]);
+  return btoa(str);
+}
+
 const QZPrinter = {
-  // QZ Tray kurulu ve çalışıyor mu?
   isAvailable: () => typeof window.qz !== 'undefined' && window.qz,
 
-  // QZ'ye bağlan
+  setupSecurity: () => {
+    if (!window.qz || _qzSecurityConfigured) return;
+    window.qz.security.setCertificatePromise((resolve) => resolve(MARKETPOS_CERT));
+    window.qz.security.setSignaturePromise((toSign) => qzSign(toSign));
+    _qzSecurityConfigured = true;
+  },
+
   connect: async () => {
     if (!QZPrinter.isAvailable()) return false;
     try {
+      QZPrinter.setupSecurity();
       if (!window.qz.websocket.isActive()) {
-        await window.qz.websocket.connect({ retries: 1, delay: 1 });
+        await window.qz.websocket.connect({ retries: 3, delay: 2 });
       }
       return true;
-    } catch (e) { console.warn('QZ bağlantı hatası:', e); return false; }
+    } catch (e) {
+      console.error('QZ bağlantı hatası:', e.message || e);
+      return false;
+    }
   },
 
   // Bağlı yazıcıları listele
