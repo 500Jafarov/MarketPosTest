@@ -3637,8 +3637,12 @@ function ProductModal({ product, categories, settings, onSave, onClose }) {
     const whStocks = {};
     warehouses.forEach((_, idx) => {
       const { stock: sk, min: mk } = getWhKeys(idx);
-      whStocks[sk] = +form[sk] || 0;
-      whStocks[mk] = +form[mk] || 10;
+      const wasSet = product && product[sk] !== undefined;
+      const val = form[sk] !== '' && form[sk] !== undefined ? +form[sk] : undefined;
+      if (val > 0 || wasSet) {
+        whStocks[sk] = val || 0;
+        whStocks[mk] = +form[mk] || 10;
+      }
     });
     onSave({
       ...form,
@@ -4273,6 +4277,7 @@ function WarehousePage() {
     const q = search.toLowerCase();
     const matchS = !q || p.name.toLowerCase().includes(q) || (p.sku||'').toLowerCase().includes(q);
     const matchC = !filterCat || p.categoryId === filterCat;
+    if (p[stockKey] === undefined) return false; // bu anbara aid deyil
     const ws = p[stockKey] || 0;
     const mws = p[minKey] || 10;
     const matchF = !filterStatus
