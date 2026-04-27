@@ -2846,7 +2846,7 @@ function getQZKey() {
     const keyBuffer = Uint8Array.from(atob(keyData), c => c.charCodeAt(0));
     _qzKeyPromise = crypto.subtle.importKey(
       'pkcs8', keyBuffer,
-      { name: 'RSASSA-PKCS1-v1_5', hash: { name: 'SHA-512' } },
+      { name: 'RSASSA-PKCS1-v1_5', hash: { name: 'SHA-1' } },
       false, ['sign']
     );
   }
