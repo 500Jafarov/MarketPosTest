@@ -2823,7 +2823,7 @@ const QZPrinter = {
   setupSecurity: () => {
     if (!window.qz || _qzSecurityConfigured) return;
     window.qz.security.setCertificatePromise((resolve) => resolve(MARKETPOS_CERT));
-    window.qz.security.setSignaturePromise((toSign) => qzSign(toSign));
+    window.qz.security.setSignaturePromise((toSign) => (resolve, reject) => qzSign(toSign).then(resolve).catch(reject));
     _qzSecurityConfigured = true;
   },
 
