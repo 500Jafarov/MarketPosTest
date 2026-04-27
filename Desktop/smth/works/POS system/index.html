@@ -2577,7 +2577,7 @@ function POSPage() {
                   marginTop: 10,
                   ...(isCredit ? { background: '#dc2626', boxShadow: '0 4px 12px rgba(220,38,38,0.4)' } : {}),
                 },
-                onClick: () => handleCompleteSale(),
+                onClick: () => setShowPayment(true),
                 disabled: cart.length === 0
               }, isCredit ? `⚠ Borça sat — ${fmt.currency(Math.max(0, total), cur)}` : `💵 Ödəniş — ${fmt.currency(Math.max(0, total), cur)}`)
             )
@@ -2730,7 +2730,7 @@ function POSPage() {
                 fontSize: 16,
                 ...(isCredit ? { background: '#dc2626', boxShadow: '0 4px 12px rgba(220,38,38,0.4)' } : {}),
               },
-              onClick: () => { handleCompleteSale(); setCartDrawerOpen(false); },
+              onClick: () => { setShowPayment(true); setCartDrawerOpen(false); },
               disabled: cart.length === 0
             }, isCredit ? `⚠ Borça sat — ${fmt.currency(Math.max(0, total), cur)}` : `💵 Ödəniş — ${fmt.currency(Math.max(0, total), cur)}`)
           )
@@ -2743,6 +2743,7 @@ function POSPage() {
     showPayment && React.createElement(PaymentModal, {
       total: Math.max(0, total),
       cur,
+      isCredit,
       onCancel: () => setShowPayment(false),
       onConfirm: (received) => {
         setCashReceived(received > 0 ? String(received) : '');
@@ -2756,22 +2757,27 @@ function POSPage() {
 // ============================================================
 // PAYMENT MODAL — Nağd ödəniş və qaytarılacaq hesablama
 // ============================================================
-function PaymentModal({ total, cur, onCancel, onConfirm }) {
-  return React.createElement(Modal, { show: true, onClose: onCancel, title: '💵 Nağd Ödəniş' },
+function PaymentModal({ total, cur, isCredit, onCancel, onConfirm }) {
+  return React.createElement(Modal, { show: true, onClose: onCancel, title: isCredit ? '⚠ Borc Satışı' : '💵 Ödəniş Təsdiqi' },
     React.createElement('div', { className: 'modal-body' },
-      React.createElement('div', { style: { textAlign: 'center', marginBottom: 28 } },
-        React.createElement('div', { style: { fontSize: 13, color: 'var(--text2)', marginBottom: 4 } }, 'Ödəniləcək məbləğ'),
-        React.createElement('div', { style: { fontSize: 42, fontWeight: 800, color: 'var(--accent)', letterSpacing: 1 } },
+      React.createElement('div', { style: { textAlign: 'center', marginBottom: 24 } },
+        React.createElement('div', { style: { fontSize: 13, color: 'var(--text2)', marginBottom: 4 } },
+          isCredit ? 'Müştəri borca alır' : 'Ödəniləcək məbləğ'
+        ),
+        React.createElement('div', { style: { fontSize: 42, fontWeight: 800, color: isCredit ? '#dc2626' : 'var(--accent)', letterSpacing: 1 } },
           cur + total.toLocaleString('az-AZ', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+        ),
+        React.createElement('div', { style: { fontSize: 12, color: 'var(--text3)', marginTop: 8 } },
+          'Hər şey düzdür? Müştəri daha əlavə etmək istəmir?'
         )
       ),
       React.createElement('div', { style: { display: 'flex', gap: 10 } },
-        React.createElement('button', { className: 'btn btn-secondary', style: { flex: 1, justifyContent: 'center' }, onClick: onCancel }, 'Ləğv et'),
+        React.createElement('button', { className: 'btn btn-secondary', style: { flex: 1, justifyContent: 'center' }, onClick: onCancel }, '← Geri qayıt'),
         React.createElement('button', {
           className: 'btn btn-primary',
-          style: { flex: 2, justifyContent: 'center', fontSize: 16, fontWeight: 700 },
+          style: { flex: 2, justifyContent: 'center', fontSize: 16, fontWeight: 700, ...(isCredit ? { background: '#dc2626' } : {}) },
           onClick: () => onConfirm(0)
-        }, '✓ Satışı Tamamla')
+        }, isCredit ? '⚠ Borca sat' : '✓ Satışı Tamamla')
       )
     )
   );
