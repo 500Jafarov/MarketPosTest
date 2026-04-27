@@ -491,6 +491,19 @@ textarea.form-control { resize: vertical; min-height: 80px; }
 .product-card-pos:hover { border-color: var(--accent); background: var(--bg3); transform: translateY(-1px); }
 .product-card-pos.out-of-stock { opacity: 0.45; cursor: not-allowed; }
 .product-card-pos:hover.out-of-stock { transform: none; border-color: var(--border); }
+.pos-view-toggle { display: flex; gap: 4px; }
+.pos-view-btn { background: var(--bg2); border: 1px solid var(--border); border-radius: 6px; padding: 6px 10px; cursor: pointer; color: var(--text3); font-size: 15px; transition: all 0.15s; }
+.pos-view-btn.active { background: var(--accent); border-color: var(--accent); color: #000; }
+.pos-products-list { display: flex; flex-direction: column; gap: 4px; overflow-y: auto; flex: 1; padding: 2px; }
+.product-row-pos { display: flex; align-items: center; gap: 10px; background: var(--bg2); border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; cursor: pointer; transition: all 0.15s; }
+.product-row-pos:hover { border-color: var(--accent); background: var(--bg3); }
+.product-row-pos.out-of-stock { opacity: 0.45; cursor: not-allowed; }
+.product-row-pos:hover.out-of-stock { border-color: var(--border); background: var(--bg2); }
+.product-row-emoji { font-size: 22px; width: 32px; text-align: center; flex-shrink: 0; }
+.product-row-img { width: 32px; height: 32px; object-fit: cover; border-radius: 4px; flex-shrink: 0; }
+.product-row-name { flex: 1; font-size: 13px; font-weight: 600; color: var(--text); min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.product-row-price { font-family: var(--mono); font-size: 13px; font-weight: 700; color: var(--accent); flex-shrink: 0; }
+.product-row-stock { font-size: 11px; color: var(--text3); font-family: var(--mono); flex-shrink: 0; min-width: 60px; text-align: right; }
 .pos-product-img {
   width: 100%; aspect-ratio: 1;
   background: var(--bg3);
@@ -2187,6 +2200,7 @@ function POSPage() {
   const [completedSale, setCompletedSale] = useState(null);
   const [showReceipt, setShowReceipt] = useState(false);
   const [cartDrawerOpen, setCartDrawerOpen] = useState(false);
+  const [viewMode, setViewMode] = useState('grid'); // 'grid' | 'list'
   const [editingPrice, setEditingPrice] = useState(null); // productId being edited
   const [editPriceVal, setEditPriceVal] = useState('');
   const [cashReceived, setCashReceived] = useState('');
@@ -2383,28 +2397,53 @@ function POSPage() {
             },
               React.createElement('option', { value: '' }, 'Bütün Kateqoriyalar'),
               categories.map(c => React.createElement('option', { key: c.id, value: c.id }, c.icon + ' ' + c.name))
+            ),
+            React.createElement('div', { className: 'pos-view-toggle' },
+              React.createElement('button', { className: `pos-view-btn${viewMode === 'grid' ? ' active' : ''}`, onClick: () => setViewMode('grid'), title: 'Kart görünüşü' }, '⊞'),
+              React.createElement('button', { className: `pos-view-btn${viewMode === 'list' ? ' active' : ''}`, onClick: () => setViewMode('list'), title: 'Siyahı görünüşü' }, '☰')
             )
           ),
-          React.createElement('div', { className: 'pos-products-grid' },
-            filtered.length === 0
-              ? React.createElement('div', { style: { gridColumn: '1/-1', textAlign: 'center', padding: '40px 20px', color: 'var(--text3)' } }, '🔍 Məhsul tapılmadı')
-              : filtered.map(p =>
-                React.createElement('div', {
-                  key: p.id,
-                  className: `product-card-pos${p.stock === 0 ? ' out-of-stock' : ''}`,
-                  onClick: () => addToCart(p)
-                },
-                  React.createElement('div', { className: 'pos-product-img' },
-                    p.image ? React.createElement('img', { src: p.image, alt: p.name }) : p.emoji || '📦'
-                  ),
-                  React.createElement('div', { className: 'pos-product-name' }, p.name),
-                  React.createElement('div', { className: 'pos-product-price' }, fmt.currency(getPrice(p), cur)),
-                  React.createElement('div', { className: 'pos-product-stock' },
-                    p.stock === 0 ? '❌ Tükəndi' : `Stok: ${p.stock}`
-                  )
-                )
+          viewMode === 'grid'
+            ? React.createElement('div', { className: 'pos-products-grid' },
+                filtered.length === 0
+                  ? React.createElement('div', { style: { gridColumn: '1/-1', textAlign: 'center', padding: '40px 20px', color: 'var(--text3)' } }, '🔍 Məhsul tapılmadı')
+                  : filtered.map(p =>
+                      React.createElement('div', {
+                        key: p.id,
+                        className: `product-card-pos${p.stock === 0 ? ' out-of-stock' : ''}`,
+                        onClick: () => addToCart(p)
+                      },
+                        React.createElement('div', { className: 'pos-product-img' },
+                          p.image ? React.createElement('img', { src: p.image, alt: p.name }) : p.emoji || '📦'
+                        ),
+                        React.createElement('div', { className: 'pos-product-name' }, p.name),
+                        React.createElement('div', { className: 'pos-product-price' }, fmt.currency(getPrice(p), cur)),
+                        React.createElement('div', { className: 'pos-product-stock' },
+                          p.stock === 0 ? '❌ Tükəndi' : `Stok: ${p.stock}`
+                        )
+                      )
+                    )
               )
-          )
+            : React.createElement('div', { className: 'pos-products-list' },
+                filtered.length === 0
+                  ? React.createElement('div', { style: { textAlign: 'center', padding: '40px 20px', color: 'var(--text3)' } }, '🔍 Məhsul tapılmadı')
+                  : filtered.map(p =>
+                      React.createElement('div', {
+                        key: p.id,
+                        className: `product-row-pos${p.stock === 0 ? ' out-of-stock' : ''}`,
+                        onClick: () => addToCart(p)
+                      },
+                        p.image
+                          ? React.createElement('img', { src: p.image, alt: p.name, className: 'product-row-img' })
+                          : React.createElement('span', { className: 'product-row-emoji' }, p.emoji || '📦'),
+                        React.createElement('span', { className: 'product-row-name' }, p.name),
+                        React.createElement('span', { className: 'product-row-price' }, fmt.currency(getPrice(p), cur)),
+                        React.createElement('span', { className: 'product-row-stock' },
+                          p.stock === 0 ? '❌ Tükəndi' : `${p.stock} ədəd`
+                        )
+                      )
+                    )
+              )
         ),
         // Cart side
         React.createElement('div', { className: 'pos-cart' },
