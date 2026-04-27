@@ -3627,8 +3627,19 @@ function ProductModal({ product, categories, settings, onSave, onClose }) {
     e.target.value = ''; // allow re-selecting same file
   };
 
+  const getWhKeys = (idx) => ({
+    stock: idx === 0 ? 'warehouseStock' : 'warehouse' + (idx + 1) + 'Stock',
+    min:   idx === 0 ? 'minWarehouseStock' : 'minWarehouse' + (idx + 1) + 'Stock',
+  });
+
   const handleSubmit = () => {
     if (!validate()) return;
+    const whStocks = {};
+    warehouses.forEach((_, idx) => {
+      const { stock: sk, min: mk } = getWhKeys(idx);
+      whStocks[sk] = +form[sk] || 0;
+      whStocks[mk] = +form[mk] || 10;
+    });
     onSave({
       ...form,
       retailPrice: +form.retailPrice,
@@ -3636,8 +3647,7 @@ function ProductModal({ product, categories, settings, onSave, onClose }) {
       purchasePrice: +form.purchasePrice || 0,
       stock: +form.stock || 0,
       minStock: +form.minStock || 10,
-      warehouseStock: +form.warehouseStock || 0,
-      minWarehouseStock: +form.minWarehouseStock || 10,
+      ...whStocks,
       warehouseId: form.warehouseId || warehouses[0]?.id || 'wh1',
     });
   };
@@ -3770,19 +3780,24 @@ function ProductModal({ product, categories, settings, onSave, onClose }) {
                   )
                 )
               ),
-              // Anbar stoku
-              React.createElement('div', { style: { background: 'var(--blue-dim)', border: '1px solid rgba(59,130,246,0.2)', borderRadius: 8, padding: '10px 12px' } },
-                React.createElement('div', { style: { fontSize: 11, fontWeight: 700, color: 'var(--blue)', fontFamily: 'var(--mono)', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 5 } }, '🏭 Anbar Stoqu'),
-                React.createElement('div', { className: 'form-grid-2' },
-                  React.createElement('div', { className: 'form-group', style: { marginBottom: 0 } },
-                    React.createElement('label', { className: 'form-label' }, 'Mövcud'),
-                    React.createElement('input', { className: 'form-control', type: 'number', min: 0, value: form.warehouseStock || '', onChange: e => set('warehouseStock', e.target.value), placeholder: '0' })
-                  ),
-                  React.createElement('div', { className: 'form-group', style: { marginBottom: 0 } },
-                    React.createElement('label', { className: 'form-label' }, 'Min. Hədd'),
-                    React.createElement('input', { className: 'form-control', type: 'number', min: 0, value: form.minWarehouseStock || '', onChange: e => set('minWarehouseStock', e.target.value), placeholder: '10' })
-                  )
-                )
+              // Anbar stoku — hər anbar üçün ayrı
+              React.createElement('div', null,
+                warehouses.map((wh, idx) => {
+                  const { stock: sk, min: mk } = getWhKeys(idx);
+                  return React.createElement('div', { key: wh.id, style: { background: 'var(--blue-dim)', border: '1px solid rgba(59,130,246,0.2)', borderRadius: 8, padding: '10px 12px', marginBottom: idx < warehouses.length - 1 ? 8 : 0 } },
+                    React.createElement('div', { style: { fontSize: 11, fontWeight: 700, color: 'var(--blue)', fontFamily: 'var(--mono)', marginBottom: 6 } }, '🏭 ' + wh.name),
+                    React.createElement('div', { className: 'form-grid-2' },
+                      React.createElement('div', { className: 'form-group', style: { marginBottom: 0 } },
+                        React.createElement('label', { className: 'form-label' }, 'Mövcud'),
+                        React.createElement('input', { className: 'form-control', type: 'number', min: 0, value: form[sk] || '', onChange: e => set(sk, e.target.value), placeholder: '0' })
+                      ),
+                      React.createElement('div', { className: 'form-group', style: { marginBottom: 0 } },
+                        React.createElement('label', { className: 'form-label' }, 'Min. Hədd'),
+                        React.createElement('input', { className: 'form-control', type: 'number', min: 0, value: form[mk] || '', onChange: e => set(mk, e.target.value), placeholder: '10' })
+                      )
+                    )
+                  );
+                })
               )
             ),
             // Birim
@@ -5971,7 +5986,7 @@ function SettingsPage() {
                 placeholder: 'Anbar adı',
                 style: { flex: 1 }
               }),
-              (form.warehouses || []).length > 1 && React.createElement('button', {
+              idx > 0 && React.createElement('button', {
                 className: 'btn btn-danger',
                 style: { padding: '6px 12px', fontSize: 13 },
                 onClick: () => set('warehouses', (form.warehouses || []).filter((_, i) => i !== idx))
