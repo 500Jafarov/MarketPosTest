@@ -157,3 +157,39 @@ async function fbDeleteReturn(id) {
     throw error;
   }
 }
+
+// Transferlər
+
+function fbStreamTransfers(onData, onError) {
+  const q = fbDB.collection('transfers').where('ownerId', '==', uid());
+  return q.onSnapshot(snap => {
+      const docs = snap.docs.map(d => ({ ...d.data(), id: d.id }));
+      docs.sort((a, b) => {
+        const ta = a.createdAt?.seconds ?? new Date(a.createdAt || 0).getTime() / 1000;
+        const tb = b.createdAt?.seconds ?? new Date(b.createdAt || 0).getTime() / 1000;
+        return tb - ta;
+      });
+      onData(docs);
+    },
+    onError || (err => console.error('[FB] streamTransfers:', err))
+  );
+}
+
+async function fbSaveTransfer(transfer) {
+  const ownerId = uid();
+  const ref = fbDB.collection('transfers').doc(transfer.id);
+  await ref.set({ ...transfer, ownerId, createdAt: TS() });
+  return ref.id;
+}
+
+async function fbDeleteTransfer(id) {
+  return fbDB.doc('transfers/' + id).delete();
+}
+
+async function fbClearTransfers() {
+  const ownerId = uid();
+  const snap = await fbDB.collection('transfers').where('ownerId', '==', ownerId).get();
+  const batch = fbDB.batch();
+  snap.docs.forEach(d => batch.delete(d.ref));
+  return batch.commit();
+}

@@ -1441,7 +1441,7 @@ function AppProvider({ children }) {
   const [sales, setSales] = useState([]);
   const [customers, setCustomers] = useState(() => Storage.get('customers', SEED_CUSTOMERS));
   const [settings, setSettings] = useState(SEED_SETTINGS);
-  const [transfers, setTransfers] = useState(() => Storage.get('transfers', []));
+  const [transfers, setTransfers] = useState([]);
   const [returns, setReturns] = useState([]);
   const [currentUser, setCurrentUser] = useState(null);
   const [authReady, setAuthReady] = useState(false);
@@ -1453,7 +1453,6 @@ function AppProvider({ children }) {
   useEffect(() => { Storage.set('customers', customers); }, [customers]);
   useEffect(() => { Storage.set('settings', settings); }, [settings]);
   useEffect(() => { document.documentElement.dataset.theme = settings.theme === 'light' ? 'light' : 'dark'; }, [settings.theme]);
-  useEffect(() => { Storage.set('transfers', transfers); }, [transfers]);
 
   // ── Firebase Auth state observer ──────────────────────────────
   useEffect(() => {
@@ -1497,6 +1496,12 @@ function AppProvider({ children }) {
   useEffect(() => {
     if (!currentUser?.uid) return;
     return fbStreamReturns(r => setReturns(r));
+  }, [currentUser?.uid]);
+
+  // ── Real-time transfers stream ────────────────────────────────
+  useEffect(() => {
+    if (!currentUser?.uid) return;
+    return fbStreamTransfers(t => setTransfers(t));
   }, [currentUser?.uid]);
 
   // ── Migration: Fix returns without ownerId ───────────────────
@@ -1662,8 +1667,14 @@ function AppProvider({ children }) {
     fbCollectCredit(id, collectedAt)
       .catch(err => { console.error('[FB] collectCredit:', err); addToast('Xəta: borc yenilənmədi.', 'error'); });
   }, []);
-  const deleteTransfer = useCallback((id) => { setTransfers(prev => prev.filter(x => x.id !== id)); }, []);
-  const clearAllTransfers = useCallback(() => { setTransfers([]); }, []);
+  const deleteTransfer = useCallback((id) => {
+    setTransfers(prev => prev.filter(x => x.id !== id));
+    fbDeleteTransfer(id).catch(err => console.error('[FB] deleteTransfer:', err));
+  }, []);
+  const clearAllTransfers = useCallback(() => {
+    setTransfers([]);
+    fbClearTransfers().catch(err => console.error('[FB] clearTransfers:', err));
+  }, []);
 
   // Transfer: Depo → Market (supports multiple warehouses)
   const transferToShop = useCallback((items, note, user, whIdx = 0) => {
@@ -1705,6 +1716,7 @@ function AppProvider({ children }) {
       createdAt: new Date().toISOString(),
     };
     setTransfers(prev => [transfer, ...prev]);
+    fbSaveTransfer(transfer).catch(err => console.error('[FB] saveTransfer:', err));
     return { ok: true, transfer };
   }, [products]);
 
