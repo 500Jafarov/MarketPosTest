@@ -43,6 +43,12 @@ service cloud.firestore {
       allow update: if isResourceOwner() || resource.data.ownerId == null;
     }
 
+    // transfers - warehouse to shop logs
+    match /transfers/{transferId} {
+      allow read, delete: if isResourceOwner();
+      allow create: if isRequestOwner();
+    }
+
     // deny everything else
     match /{document=**} {
       allow read, write: if false;
