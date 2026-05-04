@@ -6644,6 +6644,22 @@ function AppShell() {
 
   if (!currentUser) return React.createElement(LoginPage);
 
+  const CHANGELOG_DATE = '2026-05-04';
+  const CHANGELOG = [
+    { icon: '🐛', text: 'Satış zamanı anbar stoku azalması səhvi düzəldildi' },
+    { icon: '🛒', text: 'Satış yerinə qayıdanda seçilmiş məhsullar saxlanılır + üzən səbət düyməsi əlavə edildi' },
+    { icon: '🏭', text: 'Çox anbar dəstəyi — istədiyiniz qədər anbar əlavə edə bilərsiniz' },
+    { icon: '📊', text: 'Anbar səhifəsində məhsullar stoka görə çoxdan aza avtomatik sıralanır' },
+    { icon: '🔄', text: 'Transfer tarixçəsi artıq Firebase-də saxlanılır, bütün cihazlarda görünür' },
+  ];
+  const [showChangelog, setShowChangelog] = useState(() => {
+    return localStorage.getItem('changelog_seen') !== CHANGELOG_DATE;
+  });
+  const closeChangelog = () => {
+    localStorage.setItem('changelog_seen', CHANGELOG_DATE);
+    setShowChangelog(false);
+  };
+
   const pages = {
     dashboard: isAdmin ? React.createElement(Dashboard, { setPage: navigate }) : React.createElement(POSPage),
     pos: React.createElement(POSPage),
@@ -6698,6 +6714,32 @@ function AppShell() {
       )
     ),
     showEOD && React.createElement(EndOfDayModal, { onClose: () => setShowEOD(false) }),
+    showChangelog && React.createElement('div', {
+      style: { position:'fixed', inset:0, background:'rgba(0,0,0,0.55)', zIndex:1100, display:'flex', alignItems:'center', justifyContent:'center', padding:16 },
+      onClick: closeChangelog
+    },
+      React.createElement('div', {
+        style: { background:'var(--bg2)', border:'1px solid var(--border)', borderRadius:16, padding:28, maxWidth:420, width:'100%', boxShadow:'0 8px 40px rgba(0,0,0,0.4)' },
+        onClick: e => e.stopPropagation()
+      },
+        React.createElement('div', { style:{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:20 } },
+          React.createElement('div', null,
+            React.createElement('div', { style:{ fontSize:11, fontFamily:'var(--mono)', color:'var(--accent)', textTransform:'uppercase', letterSpacing:'0.08em', marginBottom:4 } }, '📋 ' + CHANGELOG_DATE + ' — Yenilik'),
+            React.createElement('div', { style:{ fontSize:18, fontWeight:800, fontFamily:'var(--sans)' } }, 'Nə dəyişdi?')
+          ),
+          React.createElement('button', { onClick:closeChangelog, style:{ background:'none', border:'none', fontSize:20, cursor:'pointer', color:'var(--text3)', lineHeight:1 } }, '✕')
+        ),
+        React.createElement('div', { style:{ display:'flex', flexDirection:'column', gap:12, marginBottom:24 } },
+          CHANGELOG.map((item, i) =>
+            React.createElement('div', { key:i, style:{ display:'flex', gap:12, alignItems:'flex-start' } },
+              React.createElement('span', { style:{ fontSize:20, flexShrink:0, marginTop:1 } }, item.icon),
+              React.createElement('span', { style:{ fontSize:13, color:'var(--text2)', lineHeight:1.5 } }, item.text)
+            )
+          )
+        ),
+        React.createElement('button', { onClick:closeChangelog, className:'btn btn-primary', style:{ width:'100%' } }, 'Anladım 👍')
+      )
+    ),
     pinTarget && React.createElement(Modal, { show: true, onClose: () => setPinTarget(null), title: '🔒 Kod tələb olunur' },
       React.createElement('div', { className: 'modal-body', style: { textAlign: 'center' } },
         React.createElement('div', { style: { fontSize: 13, color: 'var(--text2)', marginBottom: 16 } },
