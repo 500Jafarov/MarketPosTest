@@ -84,11 +84,8 @@ async function fbCompleteSale(sale) {
   for (const item of items) {
     if (!item.productId) continue;
     const prodRef = fbDB.doc('products/' + item.productId);
-    const whKey = item._warehouseStockKey || 'warehouseStock';
-    const newWhStock = Math.max(0, (item._curWarehouseStock || 0) - item.qty);
     batch.set(prodRef, {
       stock: INC(-item.qty),
-      [whKey]: newWhStock,
       updatedAt: TS(),
     }, { merge: true });
   }
