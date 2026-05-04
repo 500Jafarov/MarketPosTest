@@ -1589,7 +1589,6 @@ function AppProvider({ children }) {
       return {
         ...p,
         stock: p.stock - item.qty,
-        [stockKey]: Math.max(0, (p[stockKey] || 0) - item.qty),
         updatedAt: new Date().toISOString(),
       };
     }));
@@ -2200,7 +2199,7 @@ function statCard(label, value, sub, icon, colorClass) {
 // ============================================================
 function POSPage() {
   const { products, categories, completeSale, currentUser, settings, addToast } = useApp();
-  const [cart, setCart] = useState(() => Storage.get('pos_cart', []));
+  const [cart, setCart] = useState(() => Storage.get('cart', []));
   const [saleType, setSaleType] = useState('retail');
   const [search, setSearch] = useState('');
   const [filterCat, setFilterCat] = useState('');
@@ -2227,7 +2226,7 @@ function POSPage() {
   const cur = settings.currency || '₼';
   const isAdmin = currentUser?.role === 'admin';
 
-  useEffect(() => { Storage.set('pos_cart', cart); }, [cart]);
+  useEffect(() => { Storage.set('cart', cart); }, [cart]);
 
   const activeProducts = products.filter(p => p.active);
   const filtered = activeProducts.filter(p => {
@@ -2375,7 +2374,7 @@ function POSPage() {
     if (!result.ok) { addToast(result.error, 'error'); return; }
     setCompletedSale(result.sale);
     setCart([]);
-    Storage.set('pos_cart', []);
+    Storage.set('cart', []);
     setCustomerName(''); setCustomerPhone(''); setNotes(''); setDiscount(0); setCashReceived(''); setIsCredit(false);
     setShowReceipt(true);
     addToast('Satış tamamlandı! Qəbz №: ' + result.sale.receiptNo, 'success');
