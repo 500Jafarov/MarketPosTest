@@ -6314,6 +6314,9 @@ function EndOfDayModal({ onClose }) {
     addToast('Yedek dosyası indirildi!', 'success');
   };
 
+  // Auto-download JSON when EOD modal opens
+  useEffect(() => { handleBackup(); }, []);
+
   // Print EOD report
   const handlePrint = () => {
     window.print();
