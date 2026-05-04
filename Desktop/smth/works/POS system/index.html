@@ -1258,6 +1258,20 @@ const fmt = {
 };
 
 // ============================================================
+// UTILITY: Matched returns
+// Only count a return against a time period if the original sale
+// also falls within that same period — prevents previous-day
+// returns from making today's revenue go negative.
+// ============================================================
+const matchedReturns = (rets, sls, since) =>
+  (rets || []).filter(r => {
+    if (toDate(r.createdAt) < since) return false;
+    const orig = sls.find(s => s.id === r.saleId);
+    if (!orig) return true;
+    return toDate(orig.createdAt) >= since;
+  });
+
+// ============================================================
 // UTILITY: ID generator
 // ============================================================
 let _idCounter = Date.now();
@@ -1965,7 +1979,7 @@ function Sidebar({ activePage, setPage, setShowEOD, sidebarOpen }) {
       React.createElement('div', { className: 'daily-stats' },
         React.createElement('div', { className: 'daily-stat-row' },
           React.createElement('span', { className: 'daily-stat-name' }, 'Gəlir'),
-          React.createElement('span', { className: 'daily-stat-val' }, (() => { const today = new Date(); today.setHours(0,0,0,0); const gross = sales.filter(s => toDate(s.createdAt) >= today).reduce((a,s) => a+s.total, 0); const ret = (returns||[]).filter(r => toDate(r.createdAt) >= today).reduce((a,r) => a+(r.total||0), 0); return (settings.currency||'₼') + (gross-ret).toLocaleString('tr-TR',{minimumFractionDigits:2,maximumFractionDigits:2}); })())
+          React.createElement('span', { className: 'daily-stat-val' }, (() => { const today = new Date(); today.setHours(0,0,0,0); const gross = sales.filter(s => toDate(s.createdAt) >= today).reduce((a,s) => a+s.total, 0); const ret = matchedReturns(returns, sales, today).reduce((a,r) => a+(r.total||0), 0); return (settings.currency||'₼') + (gross-ret).toLocaleString('tr-TR',{minimumFractionDigits:2,maximumFractionDigits:2}); })())
         ),
         React.createElement('div', { className: 'daily-stat-row' },
           React.createElement('span', { className: 'daily-stat-name' }, 'Satış'),
@@ -2003,9 +2017,9 @@ function Dashboard({ setPage }) {
   const weekSales = sales.filter(s => toDate(s.createdAt) >= weekAgo);
   const monthSales = sales.filter(s => toDate(s.createdAt) >= monthAgo);
 
-  const todayReturns  = (returns || []).filter(r => toDate(r.createdAt) >= today);
-  const weekReturns   = (returns || []).filter(r => toDate(r.createdAt) >= weekAgo);
-  const monthReturns  = (returns || []).filter(r => toDate(r.createdAt) >= monthAgo);
+  const todayReturns  = matchedReturns(returns, sales, today);
+  const weekReturns   = matchedReturns(returns, sales, weekAgo);
+  const monthReturns  = matchedReturns(returns, sales, monthAgo);
   const sumReturns = arr => arr.reduce((s, r) => s + (r.total || 0), 0);
 
   // borc hələ alınmamış satışlar
@@ -4942,8 +4956,8 @@ function ReportsPage() {
     if (s.creditCollectedAt) return toDate(s.creditCollectedAt) >= today;
     return toDate(s.createdAt) >= today;
   });
-  const todayReturns = (returns || []).filter(r => toDate(r.createdAt) >= today);
-  const thisMonthReturns = (returns || []).filter(r => toDate(r.createdAt) >= monthStart);
+  const todayReturns = matchedReturns(returns, sales, today);
+  const thisMonthReturns = matchedReturns(returns, sales, monthStart);
 
   const sum = (arr) => arr.reduce((s, x) => s + x.total, 0);
   const sumRet = (arr) => arr.reduce((s, r) => s + (r.total || 0), 0);
@@ -6642,7 +6656,7 @@ function AppShell() {
   // Today's stats for topbar
   const today = new Date(); today.setHours(0,0,0,0);
   const todaySales = sales.filter(s => toDate(s.createdAt) >= today);
-  const todayReturns = (returns || []).filter(r => toDate(r.createdAt) >= today);
+  const todayReturns = matchedReturns(returns, sales, today);
   const todayRev = todaySales.reduce((a, s) => a + s.total, 0) - todayReturns.reduce((a, r) => a + (r.total || 0), 0);
 
   if (!currentUser) return React.createElement(LoginPage);
