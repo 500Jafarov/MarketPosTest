@@ -4342,7 +4342,7 @@ function WarehousePage() {
       || (filterStatus === 'low' && ws > 0 && ws <= mws)
       || (filterStatus === 'ok' && ws > mws);
     return matchS && matchC && matchF;
-  });
+  }).sort((a, b) => (b[stockKey] || 0) - (a[stockKey] || 0));
 
   const handleUpdate = (p) => {
     const v = parseInt(editVal);
