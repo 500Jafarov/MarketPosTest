@@ -1443,15 +1443,17 @@ function AppProvider({ children }) {
   const [settings, setSettings] = useState(SEED_SETTINGS);
   const [transfers, setTransfers] = useState([]);
   const [returns, setReturns] = useState([]);
+  const [cart, setCart] = useState(() => Storage.get('cart', []));
   const [currentUser, setCurrentUser] = useState(null);
   const [authReady, setAuthReady] = useState(false);
   const [toasts, setToasts] = useState([]);
 
-  // Persist changes (localStorage — categories, customers, settings, transfers lokal kalır)
+  // Persist changes (localStorage — categories, customers, settings, cart lokal kalır)
   useEffect(() => { Storage.set('users', users); }, [users]);
   useEffect(() => { Storage.set('categories', categories); }, [categories]);
   useEffect(() => { Storage.set('customers', customers); }, [customers]);
   useEffect(() => { Storage.set('settings', settings); }, [settings]);
+  useEffect(() => { Storage.set('cart', cart); }, [cart]);
   useEffect(() => { document.documentElement.dataset.theme = settings.theme === 'light' ? 'light' : 'dark'; }, [settings.theme]);
 
   // ── Firebase Auth state observer ──────────────────────────────
@@ -1792,7 +1794,7 @@ function AppProvider({ children }) {
   }, [addToast, returns]);
 
   const value = {
-    users, categories, products, sales, customers, settings, transfers, returns, currentUser, authReady,
+    users, categories, products, sales, customers, settings, transfers, returns, cart, setCart, currentUser, authReady,
     login, logout, saveProduct, deleteProduct, completeSale,
     saveCategory, deleteCategory, saveUser, deleteUser, saveSettings,
     deleteSale, clearSalesByFilter, updateSaleCustomer, collectCredit,
@@ -2198,8 +2200,7 @@ function statCard(label, value, sub, icon, colorClass) {
 // POS PAGE
 // ============================================================
 function POSPage() {
-  const { products, categories, completeSale, currentUser, settings, addToast } = useApp();
-  const [cart, setCart] = useState(() => Storage.get('cart', []));
+  const { products, categories, completeSale, currentUser, settings, addToast, cart, setCart } = useApp();
   const [saleType, setSaleType] = useState('retail');
   const [search, setSearch] = useState('');
   const [filterCat, setFilterCat] = useState('');
@@ -2225,8 +2226,6 @@ function POSPage() {
   const lastKeyTime = useRef(0);          // tracks typing speed
   const cur = settings.currency || '₼';
   const isAdmin = currentUser?.role === 'admin';
-
-  useEffect(() => { Storage.set('cart', cart); }, [cart]);
 
   const activeProducts = products.filter(p => p.active);
   const filtered = activeProducts.filter(p => {
@@ -2374,7 +2373,6 @@ function POSPage() {
     if (!result.ok) { addToast(result.error, 'error'); return; }
     setCompletedSale(result.sale);
     setCart([]);
-    Storage.set('cart', []);
     setCustomerName(''); setCustomerPhone(''); setNotes(''); setDiscount(0); setCashReceived(''); setIsCredit(false);
     setShowReceipt(true);
     addToast('Satış tamamlandı! Qəbz №: ' + result.sale.receiptNo, 'success');
@@ -6594,7 +6592,7 @@ React.createElement('button', { className: 'btn btn-primary', onClick: handleBac
 // APP SHELL
 // ============================================================
 function AppShell() {
-  const { currentUser, sales, returns, settings, authReady } = useApp();
+  const { currentUser, sales, returns, settings, authReady, cart } = useApp();
 
   if (!authReady) return React.createElement('div', {
     style: { display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -6683,6 +6681,22 @@ function AppShell() {
       pages[page] || pages.dashboard
     ),
     React.createElement(ToastContainer),
+    page !== 'pos' && cart.length > 0 && React.createElement('button', {
+      onClick: () => navigate('pos'),
+      style: {
+        position: 'fixed', bottom: 24, right: 24, zIndex: 999,
+        background: 'var(--accent)', color: '#fff',
+        border: 'none', borderRadius: 50, padding: '14px 22px',
+        boxShadow: '0 4px 20px rgba(0,0,0,0.3)',
+        cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10,
+        fontSize: 14, fontWeight: 700, fontFamily: 'var(--sans)',
+      }
+    },
+      React.createElement('span', { style: { fontSize: 18 } }, '🛒'),
+      React.createElement('span', null,
+        cart.length + ' məhsul · ' + cur + cart.reduce((s, i) => s + i.lineTotal, 0).toLocaleString('az-AZ', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+      )
+    ),
     showEOD && React.createElement(EndOfDayModal, { onClose: () => setShowEOD(false) }),
     pinTarget && React.createElement(Modal, { show: true, onClose: () => setPinTarget(null), title: '🔒 Kod tələb olunur' },
       React.createElement('div', { className: 'modal-body', style: { textAlign: 'center' } },
