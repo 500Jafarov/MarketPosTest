@@ -6013,14 +6013,24 @@ function SettingsPage() {
     };
 
     const uploadChunked = async (col, items) => {
-      for (let i = 0; i < items.length; i += CHUNK) {
+      const hasLargeImage = (item) =>
+        item.image && typeof item.image === 'string' && item.image.startsWith('data:');
+
+      // Items with large base64 images must be written individually (batch request limit)
+      const singles = items.filter(hasLargeImage);
+      const batched = items.filter(i => !hasLargeImage(i));
+
+      for (const item of singles) {
+        const { id, ...rawData } = item;
+        const data = convertTimestamps({ ...rawData, ownerId: uid });
+        const ref = id ? fbDB.collection(col).doc(id) : fbDB.collection(col).doc();
+        await ref.set(data);
+      }
+
+      for (let i = 0; i < batched.length; i += CHUNK) {
         const b = fbDB.batch();
-        items.slice(i, i + CHUNK).forEach(item => {
+        batched.slice(i, i + CHUNK).forEach(item => {
           const { id, ...rawData } = item;
-          // Strip base64 images to avoid 11MB payload limit
-          if (rawData.image && typeof rawData.image === 'string' && rawData.image.startsWith('data:')) {
-            rawData.image = null;
-          }
           const data = convertTimestamps({ ...rawData, ownerId: uid });
           const ref = id ? fbDB.collection(col).doc(id) : fbDB.collection(col).doc();
           b.set(ref, data);
