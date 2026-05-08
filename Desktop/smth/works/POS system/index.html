@@ -6762,21 +6762,48 @@ React.createElement('button', { className: 'btn btn-primary', onClick: handleBac
 function AppShell() {
   const { currentUser, sales, returns, settings, authReady, cart } = useApp();
 
+  // All hooks must come before any early return
+  const [page, setPage] = useState('pos');
+  const [showEOD, setShowEOD] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [pinTarget, setPinTarget] = useState(null);
+  const [pinValue, setPinValue] = useState('');
+  const [pinError, setPinError] = useState(false);
+  const CHANGELOG_DATE = '2026-05-04';
+  const [showChangelog, setShowChangelog] = useState(() => {
+    return localStorage.getItem('changelog_seen') !== CHANGELOG_DATE;
+  });
+
+  const isAdmin = currentUser?.role === 'admin';
+  const cur = settings?.currency || '₼';
+  const PIN_PAGES = ['dashboard', 'reports'];
+  const CORRECT_PIN = '1701';
+
+  useEffect(() => {
+    if (authReady && currentUser && !isAdmin && !['pos','sales'].includes(page)) setPage('pos');
+  }, [isAdmin, authReady, currentUser]);
+
   if (!authReady) return React.createElement('div', {
     style: { display: 'flex', alignItems: 'center', justifyContent: 'center',
              height: '100vh', background: 'var(--bg)', color: 'var(--accent)',
              fontFamily: 'var(--mono)', fontSize: 14, letterSpacing: '0.05em' }
   }, '⬡  MarketPOS yükleniyor...');
-  const [page, setPage] = useState('pos');
-  const [showEOD, setShowEOD] = useState(false);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [pinTarget, setPinTarget] = useState(null); // pending page waiting for PIN
-  const [pinValue, setPinValue] = useState('');
-  const [pinError, setPinError] = useState(false);
-  const isAdmin = currentUser?.role === 'admin';
-  const cur = settings?.currency || '₼';
-  const PIN_PAGES = ['dashboard', 'reports'];
-  const CORRECT_PIN = '1701';
+
+  if (!currentUser) return React.createElement(LoginPage);
+
+  // Today's stats for topbar
+  const today = new Date(); today.setHours(0,0,0,0);
+  const todaySales = sales.filter(s => toDate(s.createdAt) >= today);
+  const todayReturns = matchedReturns(returns, sales, today);
+  const todayRev = todaySales.reduce((a, s) => a + s.total, 0) - todayReturns.reduce((a, r) => a + (r.total || 0), 0);
+
+  const CHANGELOG = [
+    { icon: '🐛', text: 'Satış zamanı anbar stoku azalması səhvi düzəldildi' },
+    { icon: '🛒', text: 'Satış yerinə qayıdanda seçilmiş məhsullar saxlanılır + üzən səbət düyməsi əlavə edildi' },
+    { icon: '🏭', text: 'Çox anbar dəstəyi — istədiyiniz qədər anbar əlavə edə bilərsiniz' },
+    { icon: '📊', text: 'Anbar səhifəsində məhsullar stoka görə çoxdan aza avtomatik sıralanır' },
+    { icon: '🔄', text: 'Transfer tarixçəsi artıq Firebase-də saxlanılır, bütün cihazlarda görünür' },
+  ];
 
   const navigate = (p) => {
     if (isAdmin && PIN_PAGES.includes(p)) {
@@ -6800,29 +6827,6 @@ function AppShell() {
     }
   };
 
-  useEffect(() => {
-    if (!isAdmin && !['pos','sales'].includes(page)) setPage('pos');
-  }, [isAdmin]);
-
-  // Today's stats for topbar
-  const today = new Date(); today.setHours(0,0,0,0);
-  const todaySales = sales.filter(s => toDate(s.createdAt) >= today);
-  const todayReturns = matchedReturns(returns, sales, today);
-  const todayRev = todaySales.reduce((a, s) => a + s.total, 0) - todayReturns.reduce((a, r) => a + (r.total || 0), 0);
-
-  if (!currentUser) return React.createElement(LoginPage);
-
-  const CHANGELOG_DATE = '2026-05-04';
-  const CHANGELOG = [
-    { icon: '🐛', text: 'Satış zamanı anbar stoku azalması səhvi düzəldildi' },
-    { icon: '🛒', text: 'Satış yerinə qayıdanda seçilmiş məhsullar saxlanılır + üzən səbət düyməsi əlavə edildi' },
-    { icon: '🏭', text: 'Çox anbar dəstəyi — istədiyiniz qədər anbar əlavə edə bilərsiniz' },
-    { icon: '📊', text: 'Anbar səhifəsində məhsullar stoka görə çoxdan aza avtomatik sıralanır' },
-    { icon: '🔄', text: 'Transfer tarixçəsi artıq Firebase-də saxlanılır, bütün cihazlarda görünür' },
-  ];
-  const [showChangelog, setShowChangelog] = useState(() => {
-    return localStorage.getItem('changelog_seen') !== CHANGELOG_DATE;
-  });
   const closeChangelog = () => {
     localStorage.setItem('changelog_seen', CHANGELOG_DATE);
     setShowChangelog(false);
