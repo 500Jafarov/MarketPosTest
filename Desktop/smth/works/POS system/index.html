@@ -5994,7 +5994,7 @@ function SettingsPage() {
 
     setRestoreLoading(true);
     const d = restoreData;
-    const CHUNK = 450;
+    const CHUNK = 50;
 
     const convertTimestamps = (obj) => {
       if (!obj || typeof obj !== 'object') return obj;
@@ -6017,6 +6017,10 @@ function SettingsPage() {
         const b = fbDB.batch();
         items.slice(i, i + CHUNK).forEach(item => {
           const { id, ...rawData } = item;
+          // Strip base64 images to avoid 11MB payload limit
+          if (rawData.image && typeof rawData.image === 'string' && rawData.image.startsWith('data:')) {
+            rawData.image = null;
+          }
           const data = convertTimestamps({ ...rawData, ownerId: uid });
           const ref = id ? fbDB.collection(col).doc(id) : fbDB.collection(col).doc();
           b.set(ref, data);
@@ -6040,7 +6044,7 @@ function SettingsPage() {
         });
 
         const newProducts = d.products || [];
-        const MERGE_CHUNK = 400;
+        const MERGE_CHUNK = 50;
         for (let i = 0; i < newProducts.length; i += MERGE_CHUNK) {
           const b = fbDB.batch();
           newProducts.slice(i, i + MERGE_CHUNK).forEach(p => {
