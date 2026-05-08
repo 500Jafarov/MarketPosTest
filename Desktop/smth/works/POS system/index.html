@@ -4996,10 +4996,10 @@ function ReportsPage() {
     ),
     React.createElement('div', { className: 'page-body' },
       React.createElement('div', { className: 'tabs' },
-        ['overview', 'products', 'monthly', 'transfers', 'daterange', 'stock'].map(t =>
+        ['overview', 'products', 'monthly', 'transfers', 'daterange', 'stock', 'profit'].map(t =>
           React.createElement('div', { key: t, className: `tab-item${activeTab === t ? ' active' : ''}`, onClick: () => setActiveTab(t) },
-            React.createElement('span', null, { overview: '📊', products: '📦', monthly: '📅', transfers: '🔄', daterange: '🗓️', stock: '🏷️' }[t]),
-            React.createElement('span', { className: 'tab-text' }, { overview: ' Genel Bakış', products: ' Ürün Analizi', monthly: ' Aylık Trend', transfers: ' Transferler', daterange: ' Tarix Aralığı', stock: ' Stok Dəyəri' }[t])
+            React.createElement('span', null, { overview: '📊', products: '📦', monthly: '📅', transfers: '🔄', daterange: '🗓️', stock: '🏷️', profit: '💹' }[t]),
+            React.createElement('span', { className: 'tab-text' }, { overview: ' Genel Bakış', products: ' Ürün Analizi', monthly: ' Aylık Trend', transfers: ' Transferler', daterange: ' Tarix Aralığı', stock: ' Stok Dəyəri', profit: ' Mənfəətlilik' }[t])
           )
         )
       ),
@@ -5358,6 +5358,134 @@ function ReportsPage() {
                   )
                 )
               )
+        );
+      })(),
+
+      // ── Mənfəətlilik tab ─────────────────────────────────────
+      activeTab === 'profit' && (() => {
+        // Section 1: price/profit table per product
+        const activeProds = products.filter(p => p.active).sort((a, b) => a.name.localeCompare(b.name));
+
+        // Section 2: historical sales profit per product
+        const histMap = {};
+        sales.forEach(s => {
+          s.items.forEach(item => {
+            if (!histMap[item.productId]) {
+              histMap[item.productId] = { name: item.productName, retailQty: 0, retailRev: 0, wholeQty: 0, wholeRev: 0 };
+            }
+            if (s.type === 'retail') {
+              histMap[item.productId].retailQty += item.qty;
+              histMap[item.productId].retailRev += item.lineTotal;
+            } else {
+              histMap[item.productId].wholeQty += item.qty;
+              histMap[item.productId].wholeRev += item.lineTotal;
+            }
+          });
+        });
+        const histRows = Object.entries(histMap).map(([id, d]) => {
+          const p = products.find(x => x.id === id);
+          const purchase = p ? (p.purchasePrice || 0) : 0;
+          const totalQty = d.retailQty + d.wholeQty;
+          const totalRev = d.retailRev + d.wholeRev;
+          const totalCost = purchase * totalQty;
+          const totalProfit = totalRev - totalCost;
+          return { ...d, id, purchase, totalQty, totalRev, totalCost, totalProfit };
+        }).sort((a, b) => b.totalProfit - a.totalProfit);
+
+        const thStyle = { textAlign: 'left', padding: '8px 10px', fontSize: 11, fontFamily: 'var(--mono)', color: 'var(--text3)', textTransform: 'uppercase', borderBottom: '1px solid var(--border)', whiteSpace: 'nowrap' };
+        const tdStyle = (extra) => ({ padding: '9px 10px', fontSize: 13, borderBottom: '1px solid var(--border)', ...extra });
+        const mono = { fontFamily: 'var(--mono)' };
+
+        return React.createElement('div', { style: { display: 'flex', flexDirection: 'column', gap: 20 } },
+
+          // ── Section 1: Qiymət & Mənfəət Cədvəli ──
+          React.createElement('div', { className: 'card' },
+            React.createElement('div', { className: 'card-header' },
+              React.createElement('span', { className: 'card-title' }, '💹 Qiymət & Mənfəət Cədvəli')
+            ),
+            React.createElement('div', { className: 'table-wrap' },
+              React.createElement('table', null,
+                React.createElement('thead', null,
+                  React.createElement('tr', null,
+                    React.createElement('th', { style: thStyle }, 'Məhsul'),
+                    React.createElement('th', { style: { ...thStyle, textAlign: 'right' } }, 'Alış'),
+                    React.createElement('th', { style: { ...thStyle, textAlign: 'right' } }, 'Pərakəndə'),
+                    React.createElement('th', { style: { ...thStyle, textAlign: 'right', color: 'var(--green)' } }, 'Xeyir'),
+                    React.createElement('th', { style: { ...thStyle, textAlign: 'right', color: 'var(--green)' } }, 'Faiz'),
+                    React.createElement('th', { style: { ...thStyle, textAlign: 'right' } }, 'Topdan'),
+                    React.createElement('th', { style: { ...thStyle, textAlign: 'right', color: 'var(--accent)' } }, 'Xeyir'),
+                    React.createElement('th', { style: { ...thStyle, textAlign: 'right', color: 'var(--accent)' } }, 'Faiz')
+                  )
+                ),
+                React.createElement('tbody', null,
+                  activeProds.map(p => {
+                    const buy = p.purchasePrice || 0;
+                    const ret = p.retailPrice || 0;
+                    const whl = p.wholesalePrice || 0;
+                    const retProfit = ret - buy;
+                    const whlProfit = whl - buy;
+                    const retPct = buy > 0 ? (retProfit / buy * 100) : 0;
+                    const whlPct = buy > 0 ? (whlProfit / buy * 100) : 0;
+                    return React.createElement('tr', { key: p.id },
+                      React.createElement('td', { style: tdStyle() },
+                        React.createElement('span', null, p.emoji ? p.emoji + ' ' : ''),
+                        React.createElement('span', { style: { fontWeight: 600 } }, p.name),
+                        React.createElement('span', { style: { fontSize: 11, color: 'var(--text3)', fontFamily: 'var(--mono)', marginLeft: 6 } }, p.sku)
+                      ),
+                      React.createElement('td', { style: tdStyle({ ...mono, textAlign: 'right' }) }, fmt.currency(buy, cur)),
+                      React.createElement('td', { style: tdStyle({ ...mono, textAlign: 'right' }) }, fmt.currency(ret, cur)),
+                      React.createElement('td', { style: tdStyle({ ...mono, textAlign: 'right', color: retProfit >= 0 ? 'var(--green)' : 'var(--red)', fontWeight: 700 }) }, fmt.currency(retProfit, cur)),
+                      React.createElement('td', { style: tdStyle({ ...mono, textAlign: 'right', color: retProfit >= 0 ? 'var(--green)' : 'var(--red)' }) }, retPct.toFixed(1) + '%'),
+                      React.createElement('td', { style: tdStyle({ ...mono, textAlign: 'right' }) }, fmt.currency(whl, cur)),
+                      React.createElement('td', { style: tdStyle({ ...mono, textAlign: 'right', color: whlProfit >= 0 ? 'var(--accent)' : 'var(--red)', fontWeight: 700 }) }, fmt.currency(whlProfit, cur)),
+                      React.createElement('td', { style: tdStyle({ ...mono, textAlign: 'right', color: whlProfit >= 0 ? 'var(--accent)' : 'var(--red)' }) }, whlPct.toFixed(1) + '%')
+                    );
+                  })
+                )
+              )
+            )
+          ),
+
+          // ── Section 2: Satış Tarixçəsi & Qazanc ──
+          React.createElement('div', { className: 'card' },
+            React.createElement('div', { className: 'card-header' },
+              React.createElement('span', { className: 'card-title' }, '📊 Satış Tarixçəsi & Ümumi Qazanc')
+            ),
+            histRows.length === 0
+              ? React.createElement('div', { className: 'empty-state' }, React.createElement('p', null, 'Hələ satış yoxdur'))
+              : React.createElement('div', { className: 'table-wrap' },
+                  React.createElement('table', null,
+                    React.createElement('thead', null,
+                      React.createElement('tr', null,
+                        React.createElement('th', { style: thStyle }, 'Məhsul'),
+                        React.createElement('th', { style: { ...thStyle, textAlign: 'right' } }, 'Pərak. Say'),
+                        React.createElement('th', { style: { ...thStyle, textAlign: 'right' } }, 'Topdan Say'),
+                        React.createElement('th', { style: { ...thStyle, textAlign: 'right' } }, 'Ümumi Satış'),
+                        React.createElement('th', { style: { ...thStyle, textAlign: 'right' } }, 'Alış Məbləği'),
+                        React.createElement('th', { style: { ...thStyle, textAlign: 'right', color: 'var(--green)' } }, 'Xalis Qazanc')
+                      )
+                    ),
+                    React.createElement('tbody', null,
+                      histRows.map(r =>
+                        React.createElement('tr', { key: r.id },
+                          React.createElement('td', { style: tdStyle({ fontWeight: 600 }) }, r.name),
+                          React.createElement('td', { style: tdStyle({ ...mono, textAlign: 'right' }) }, r.retailQty + ' ədəd'),
+                          React.createElement('td', { style: tdStyle({ ...mono, textAlign: 'right' }) }, r.wholeQty + ' ədəd'),
+                          React.createElement('td', { style: tdStyle({ ...mono, textAlign: 'right', color: 'var(--accent)', fontWeight: 700 }) }, fmt.currency(r.totalRev, cur)),
+                          React.createElement('td', { style: tdStyle({ ...mono, textAlign: 'right' }) }, fmt.currency(r.totalCost, cur)),
+                          React.createElement('td', { style: tdStyle({ ...mono, textAlign: 'right', fontWeight: 700, color: r.totalProfit >= 0 ? 'var(--green)' : 'var(--red)' }) }, fmt.currency(r.totalProfit, cur))
+                        )
+                      ),
+                      React.createElement('tr', { style: { borderTop: '2px solid var(--border)', background: 'var(--bg3)' } },
+                        React.createElement('td', { colSpan: 3, style: { padding: '9px 10px', fontWeight: 700 } }, 'CƏMİ'),
+                        React.createElement('td', { style: { padding: '9px 10px', ...mono, textAlign: 'right', fontWeight: 700, color: 'var(--accent)', fontSize: 14 } }, fmt.currency(histRows.reduce((a, r) => a + r.totalRev, 0), cur)),
+                        React.createElement('td', { style: { padding: '9px 10px', ...mono, textAlign: 'right', fontWeight: 700 } }, fmt.currency(histRows.reduce((a, r) => a + r.totalCost, 0), cur)),
+                        React.createElement('td', { style: { padding: '9px 10px', ...mono, textAlign: 'right', fontWeight: 700, fontSize: 14, color: 'var(--green)' } }, fmt.currency(histRows.reduce((a, r) => a + r.totalProfit, 0), cur))
+                      )
+                    )
+                  )
+                )
+          )
         );
       })()
     )
